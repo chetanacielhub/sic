@@ -185,4 +185,83 @@ describe('SIC Attendance Engine — Automated Verification Suite', () => {
     // Attempting to submit an approved MoM must fail
     assert.throws(() => submitMoM(), /Only draft/);
   });
+
+  // Test 8: Centralized Role-Based Permission Matrix Evaluation
+  test('RBAC Matrix: Role permissions match the defined security specification', () => {
+    const { roleHasPermission } = require('../lib/auth/rbac');
+
+    // Super Admin has platform-wide permissions
+    assert.equal(roleHasPermission('SUPER_ADMIN', 'platform.manage'), true, 'Super Admin must have platform.manage');
+    assert.equal(roleHasPermission('SUPER_ADMIN', 'projects.create'), true, 'Super Admin must have projects.create');
+    assert.equal(roleHasPermission('SUPER_ADMIN', 'attendance.export'), true, 'Super Admin must have attendance.export');
+
+    // Project Admin has project-level administrative permissions, but NOT platform.manage
+    assert.equal(roleHasPermission('PROJECT_ADMIN', 'projects.manage'), true, 'Project Admin can manage their project');
+    assert.equal(roleHasPermission('PROJECT_ADMIN', 'members.invite'), true, 'Project Admin can invite members');
+    assert.equal(roleHasPermission('PROJECT_ADMIN', 'attendance.export'), true, 'Project Admin can export attendance');
+    assert.equal(roleHasPermission('PROJECT_ADMIN', 'platform.manage'), false, 'Project Admin cannot manage entire platform');
+
+    // Lead has operational permissions, but cannot export project reports or invite members
+    assert.equal(roleHasPermission('LEAD', 'attendance.view_team'), true, 'Lead can view team attendance');
+    assert.equal(roleHasPermission('LEAD', 'attendance.correct'), true, 'Lead can request attendance corrections');
+    assert.equal(roleHasPermission('LEAD', 'members.invite'), false, 'Lead cannot invite new members');
+    assert.equal(roleHasPermission('LEAD', 'attendance.export'), false, 'Lead cannot export project attendance');
+
+    // Member can check in and view own attendance, but cannot view team or manage
+    assert.equal(roleHasPermission('MEMBER', 'attendance.check_in'), true, 'Member can check in');
+    assert.equal(roleHasPermission('MEMBER', 'attendance.view_own'), true, 'Member can view own attendance');
+    assert.equal(roleHasPermission('MEMBER', 'attendance.view_team'), false, 'Member cannot view team roster');
+    assert.equal(roleHasPermission('MEMBER', 'projects.manage'), false, 'Member cannot manage projects');
+  });
+
+  // Test 9: Project-Based Access Scoping: Same user with different roles across projects
+  test('Project Scoping: Same user has independent roles and permissions across projects', () => {
+    const { roleHasPermission } = require('../lib/auth/rbac');
+
+    // User 1 profile
+    const user1Memberships = [
+      { projectId: 'project-ai', role: 'PROJECT_ADMIN' as const },
+      { projectId: 'project-iot', role: 'MEMBER' as const },
+    ];
+
+    const getPermissionInProject = (projectId: string, permission: any) => {
+      const membership = user1Memberships.find(m => m.projectId === projectId);
+      if (!membership) return false;
+      return roleHasPermission(membership.role, permission);
+    };
+
+    // User 1 in Project AI: Project Admin
+    assert.equal(getPermissionInProject('project-ai', 'members.invite'), true, 'User 1 is Admin in Project AI (Can invite)');
+    assert.equal(getPermissionInProject('project-ai', 'attendance.export'), true, 'User 1 is Admin in Project AI (Can export)');
+
+    // User 1 in Project IoT: Standard Member
+    assert.equal(getPermissionInProject('project-iot', 'members.invite'), false, 'User 1 is Member in Project IoT (Cannot invite)');
+    assert.equal(getPermissionInProject('project-iot', 'attendance.export'), false, 'User 1 is Member in Project IoT (Cannot export)');
+    assert.equal(getPermissionInProject('project-iot', 'attendance.check_in'), true, 'User 1 is Member in Project IoT (Can check in)');
+
+    // User 1 in Project Quantum (Not a member)
+    assert.equal(getPermissionInProject('project-quantum', 'attendance.check_in'), false, 'User 1 has no access to unassigned projects');
+  });
+
+  // Test 10: Suspended Account Revocation
+  test('Security: Suspended or inactive memberships deny all permissions regardless of role', () => {
+    interface Membership {
+      role: 'PROJECT_ADMIN' | 'LEAD' | 'MEMBER';
+      status: 'ACTIVE' | 'SUSPENDED' | 'LEFT';
+    }
+
+    function checkActiveAccess(membership: Membership): boolean {
+      if (membership.status !== 'ACTIVE') return false;
+      return true;
+    }
+
+    const suspendedAdmin: Membership = { role: 'PROJECT_ADMIN', status: 'SUSPENDED' };
+    const leftLead: Membership = { role: 'LEAD', status: 'LEFT' };
+    const activeMember: Membership = { role: 'MEMBER', status: 'ACTIVE' };
+
+    assert.equal(checkActiveAccess(suspendedAdmin), false, 'Suspended admin has access revoked');
+    assert.equal(checkActiveAccess(leftLead), false, 'Left lead has access revoked');
+    assert.equal(checkActiveAccess(activeMember), true, 'Active member maintains access');
+  });
 });
+

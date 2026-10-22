@@ -80,25 +80,31 @@ export default async function DashboardPage() {
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <Link
-              href="/sic/sessions/new"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors shadow-sm"
+              href="/login"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-slate-900 text-xs font-bold hover:bg-slate-100 transition-colors shadow-sm"
             >
-              <Plus className="h-4 w-4" />
-              Schedule Session
+              Sign In to Dashboard <ArrowRight className="h-4 w-4 text-emerald-700" />
             </Link>
             <Link
               href="/sic/check-in"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 text-white text-xs font-bold hover:bg-white/20 transition-colors backdrop-blur-xs border border-white/10"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition-colors shadow-sm"
             >
               <QrCode className="h-4 w-4" />
               Member QR Check-In
+            </Link>
+            <Link
+              href="/sic/sessions/new"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 text-white text-xs font-bold hover:bg-white/20 transition-colors backdrop-blur-xs border border-white/10"
+            >
+              <Plus className="h-4 w-4" />
+              Schedule Session
             </Link>
             <Link
               href="/sic/reports"
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 text-white text-xs font-bold hover:bg-white/20 transition-colors backdrop-blur-xs border border-white/10"
             >
               <BarChart3 className="h-4 w-4" />
-              Analytics & Audit
+              Analytics &amp; Audit
             </Link>
           </div>
         </div>

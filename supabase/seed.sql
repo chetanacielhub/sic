@@ -117,5 +117,52 @@ BEGIN
     -- Must deduplicate: {1, 2, 3} ∪ {1, 4, 6} = {1, 2, 3, 4, 6} -> Exactly 5 unique members!
     PERFORM snapshot_session_eligibility(v_session_id);
 
+    -- 10. Seed Projects & Project-Based Role Assignments
+    DECLARE
+        v_project_ai UUID := 'd1111111-1111-1111-1111-111111111111';
+        v_project_iot UUID := 'd2222222-2222-2222-2222-222222222222';
+    BEGIN
+        -- Platform Super Admin
+        INSERT INTO platform_super_admins (member_id, granted_by)
+        VALUES (v_admin_id, v_admin_id), (v_director_id, v_admin_id)
+        ON CONFLICT (member_id) DO NOTHING;
+
+        -- Projects
+        INSERT INTO projects (id, name, slug, description, created_by)
+        VALUES 
+            (v_project_ai, 'Autonomous AI & Robotics System', 'autonomous-ai-robotics', 'Next-generation autonomous rover and computer vision research.', v_admin_id),
+            (v_project_iot, 'Smart Edge Telemetry & IoT', 'smart-edge-telemetry', 'Distributed sensing, edge nodes and mesh communication.', v_admin_id)
+        ON CONFLICT (id) DO NOTHING;
+
+        -- Link groups to projects
+        UPDATE groups SET project_id = v_project_ai WHERE id = v_group_a;
+        UPDATE groups SET project_id = v_project_iot WHERE id = v_group_b;
+
+        -- Link session to project
+        UPDATE sessions SET project_id = v_project_ai WHERE id = v_session_id;
+
+        -- Multi-Project Roles:
+        -- User 1 (Aarav): Project Admin in AI, Member in IoT
+        INSERT INTO project_memberships (project_id, member_id, role, invited_by)
+        VALUES 
+            (v_project_ai, v_member_1, 'PROJECT_ADMIN', v_admin_id),
+            (v_project_iot, v_member_1, 'MEMBER', v_admin_id)
+        ON CONFLICT (project_id, member_id) DO NOTHING;
+
+        -- User 2 (Bhavna): Lead in AI, Member in IoT
+        INSERT INTO project_memberships (project_id, member_id, role, invited_by)
+        VALUES 
+            (v_project_ai, v_member_2, 'LEAD', v_admin_id),
+            (v_project_iot, v_member_2, 'MEMBER', v_admin_id)
+        ON CONFLICT (project_id, member_id) DO NOTHING;
+
+        -- User 4 (Divya): Member in AI, Lead in IoT
+        INSERT INTO project_memberships (project_id, member_id, role, invited_by)
+        VALUES 
+            (v_project_ai, v_member_4, 'MEMBER', v_admin_id),
+            (v_project_iot, v_member_4, 'LEAD', v_admin_id)
+        ON CONFLICT (project_id, member_id) DO NOTHING;
+    END;
+
     RAISE NOTICE 'Seed scenario initialized successfully for session %', v_session_id;
 END $$;

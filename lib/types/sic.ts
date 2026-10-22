@@ -201,3 +201,70 @@ export interface DailyAttendance {
   created_at: string;
   member?: Member;
 }
+
+// ----------------------------------------------------------------------------
+// Project-Based RBAC Types
+// ----------------------------------------------------------------------------
+export type ProjectStatus = 'ACTIVE' | 'ARCHIVED' | 'SUSPENDED';
+
+export interface Project {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  status: ProjectStatus;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ProjectRole = 'PROJECT_ADMIN' | 'LEAD' | 'MEMBER';
+
+export interface ProjectMembership {
+  id: string;
+  project_id: string;
+  member_id: string;
+  role: ProjectRole;
+  status: 'ACTIVE' | 'SUSPENDED' | 'LEFT';
+  invited_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  project?: Project;
+  member?: Member;
+}
+
+export type Permission = 
+  | 'platform.manage'
+  | 'projects.create'
+  | 'projects.manage'
+  | 'members.view'
+  | 'members.invite'
+  | 'members.manage'
+  | 'roles.assign'
+  | 'teams.manage'
+  | 'attendance.create'
+  | 'attendance.check_in'
+  | 'attendance.view_own'
+  | 'attendance.view_team'
+  | 'attendance.view_project'
+  | 'attendance.correct'
+  | 'attendance.export'
+  | 'minutes.view'
+  | 'minutes.manage'
+  | 'tasks.view'
+  | 'tasks.manage'
+  | 'analytics.view'
+  | 'audit.view';
+
+export interface UserEffectiveContext {
+  member: Member | null;
+  isSuperAdmin: boolean;
+  projects: Array<{
+    project: Project;
+    role: ProjectRole;
+  }>;
+  activeProjectId?: string;
+  effectiveRole?: 'SUPER_ADMIN' | ProjectRole;
+  permissions: Permission[];
+}
+
