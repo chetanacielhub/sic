@@ -57,20 +57,24 @@ export function MoMEditor({ sessionId, preparedById }: MoMEditorProps) {
         fetch('/api/sic/members'),
       ]);
 
-      const memJson = await memRes.json();
-      if (memJson.success) {
-        setMembers(memJson.data || []);
+      if (memRes.ok && memRes.headers.get('content-type')?.includes('application/json')) {
+        const memJson = await memRes.json();
+        if (memJson.success) {
+          setMembers(memJson.data || []);
+        }
       }
 
-      const momJson = await momRes.json();
-      if (momJson.success && momJson.data) {
-        const m = momJson.data;
-        setMomId(m.id);
-        setAgenda(m.agenda || '');
-        setDiscussionNotes(m.discussion_notes || '');
-        setDecisions(m.decisions || '');
-        setStatus(m.status || 'DRAFT');
-        setActionItems(m.action_items || []);
+      if (momRes.ok && momRes.headers.get('content-type')?.includes('application/json')) {
+        const momJson = await momRes.json();
+        if (momJson.success && momJson.data) {
+          const m = momJson.data;
+          setMomId(m.id);
+          setAgenda(m.agenda || '');
+          setDiscussionNotes(m.discussion_notes || '');
+          setDecisions(m.decisions || '');
+          setStatus(m.status || 'DRAFT');
+          setActionItems(m.action_items || []);
+        }
       }
     } catch (err) {
       console.error('Error loading MoM:', err);

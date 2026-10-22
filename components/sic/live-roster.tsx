@@ -78,6 +78,9 @@ export function LiveAttendanceMonitor({ sessionId }: LiveRosterProps) {
     try {
       const url = `/api/sic/sessions/${sessionId}/attendance${selectedGroupId ? `?group_id=${selectedGroupId}` : ''}`;
       const res = await fetch(url);
+      if (!res.ok) return;
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) return;
       const json = await res.json();
       if (json.success) {
         setData(json.data);

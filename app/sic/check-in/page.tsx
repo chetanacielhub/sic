@@ -53,6 +53,11 @@ function CheckInContent() {
     async function loadMembers() {
       try {
         const res = await fetch('/api/sic/members');
+        const contentType = res.headers.get('content-type');
+        if (!res.ok || !contentType || !contentType.includes('application/json')) {
+          console.warn('Could not load members list:', res.status);
+          return;
+        }
         const json = await res.json();
         if (json.success && json.data) {
           setMembers(json.data);
@@ -91,6 +96,12 @@ function CheckInContent() {
           member_id: selectedMemberId,
         }),
       });
+
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        setError(`Unexpected server response (${res.status}). Please try again.`);
+        return;
+      }
 
       const json = await res.json();
 

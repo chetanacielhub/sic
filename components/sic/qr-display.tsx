@@ -44,6 +44,11 @@ export function RotatingQrDisplay({ sessionId, initialTitle }: QrDisplayProps) {
       setIsLoading(true);
       setError(null);
       const res = await fetch(`/api/sic/sessions/${sessionId}/qr`);
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        setError(`Server returned unexpected format (${res.status})`);
+        return;
+      }
       const json = await res.json();
 
       if (!json.success) {
@@ -68,6 +73,9 @@ export function RotatingQrDisplay({ sessionId, initialTitle }: QrDisplayProps) {
   const fetchHeadcount = useCallback(async () => {
     try {
       const res = await fetch(`/api/sic/sessions/${sessionId}/attendance`);
+      if (!res.ok) return;
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) return;
       const json = await res.json();
       if (json.success && json.data?.summary) {
         setHeadcount({

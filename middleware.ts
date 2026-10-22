@@ -38,26 +38,54 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Public paths that do not require authentication
-  const isPublicPath =
+  // 1. API Route Handling (NEVER redirect API routes to HTML login pages)
+  if (pathname.startsWith('/api/')) {
+    const isPublicApi =
+      pathname.startsWith('/api/auth') ||
+      pathname === '/api/sic/attendance/check-in' ||
+      pathname === '/api/sic/members' ||
+      pathname === '/api/sic/groups' ||
+      pathname.endsWith('/qr') ||
+      pathname.endsWith('/attendance');
+
+    if (!user && !isPublicApi) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Authentication session required' },
+        { status: 401 }
+      );
+    }
+
+    return supabaseResponse;
+  }
+
+  // 2. Static and system assets
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon') ||
+    pathname.includes('.')
+  ) {
+    return supabaseResponse;
+  }
+
+  // 3. Public Web Pages
+  const isPublicPage =
     pathname === '/' ||
     pathname === '/login' ||
     pathname === '/forgot-password' ||
     pathname === '/reset-password' ||
     pathname.startsWith('/auth/callback') ||
-    pathname.startsWith('/api/auth') ||
-    pathname.startsWith('/_next') ||
-    pathname.includes('.') ||
-    pathname === '/sic/check-in'; // check-in page handles its own authentication or challenge verification
+    pathname === '/sic/check-in' ||
+    pathname.includes('/qr') ||
+    pathname.includes('/live');
 
-  // If unauthenticated and accessing protected route, redirect to /login
-  if (!user && !isPublicPath) {
+  // If unauthenticated and accessing a protected UI page, redirect to /login
+  if (!user && !isPublicPage) {
     const redirectUrl = new URL('/login', request.url);
     redirectUrl.searchParams.set('redirectTo', pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If already authenticated and accessing /login or /forgot-password, redirect to /dashboard
+  // If already authenticated and accessing login or forgot-password, redirect to /dashboard
   if (user && (pathname === '/login' || pathname === '/forgot-password')) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }

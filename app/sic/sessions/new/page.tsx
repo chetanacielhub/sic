@@ -74,18 +74,22 @@ export default function NewSessionPage() {
           fetch('/api/sic/members'),
         ]);
 
-        const grpJson = await grpRes.json();
-        if (grpJson.success && grpJson.data) {
-          setGroups(grpJson.data);
-          // Select all active groups by default for combined review
-          setSelectedGroupIds(grpJson.data.map((g: GroupItem) => g.id));
+        if (grpRes.ok && grpRes.headers.get('content-type')?.includes('application/json')) {
+          const grpJson = await grpRes.json();
+          if (grpJson.success && grpJson.data) {
+            setGroups(grpJson.data);
+            // Select all active groups by default for combined review
+            setSelectedGroupIds(grpJson.data.map((g: GroupItem) => g.id));
+          }
         }
 
-        const memJson = await memRes.json();
-        if (memJson.success && memJson.data) {
-          setMembers(memJson.data);
-          if (memJson.data.length > 0) {
-            setHostId(memJson.data[0].id);
+        if (memRes.ok && memRes.headers.get('content-type')?.includes('application/json')) {
+          const memJson = await memRes.json();
+          if (memJson.success && memJson.data) {
+            setMembers(memJson.data);
+            if (memJson.data.length > 0) {
+              setHostId(memJson.data[0].id);
+            }
           }
         }
       } catch (err) {
@@ -138,6 +142,12 @@ export default function NewSessionPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        setError(`Server returned an unexpected format (${res.status}).`);
+        return;
+      }
 
       const json = await res.json();
       if (!json.success) {
