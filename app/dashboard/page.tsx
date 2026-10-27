@@ -22,7 +22,8 @@ import {
   ArrowRight,
   FileText
 } from 'lucide-react';
-import { getCurrentMember } from '@/lib/auth/session';
+import { redirect } from 'next/navigation';
+import { getCurrentMember, getSessionUser, getCurrentUserRegistration } from '@/lib/auth/session';
 import { resolveUserContext } from '@/lib/auth/rbac';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -34,10 +35,10 @@ export default async function RoleAwareDashboardPage({
   searchParams: Promise<{ project_id?: string }>;
 }) {
   const { project_id: targetProjectId } = await searchParams;
-  const currentMember = await getCurrentMember();
-
-  // If no logged in user detected in server component, show login prompt
-  if (!currentMember) {
+  
+  // 1. Check if user is authenticated in Supabase
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) {
     return (
       <div className="max-w-md mx-auto py-16 text-center space-y-4">
         <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto text-slate-600">
@@ -55,6 +56,25 @@ export default async function RoleAwareDashboardPage({
         </Link>
       </div>
     );
+  }
+
+  // 2. Check if user has an approved SIC Member profile
+  const currentMember = await getCurrentMember();
+
+  if (!currentMember) {
+    // Authenticated user without an approved member record -> route according to registration lifecycle
+    const registration = await getCurrentUserRegistration(sessionUser.id);
+    if (!registration) {
+      redirect('/register');
+    }
+    if (registration.status === 'NEEDS_CORRECTION') {
+      redirect('/register?correction=true');
+    }
+    redirect('/registration-status');
+  }
+
+  if (currentMember.status === 'SUSPENDED') {
+    redirect('/registration-status?status=SUSPENDED');
   }
 
   const userContext = await resolveUserContext(currentMember.id, targetProjectId);
