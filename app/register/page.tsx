@@ -401,27 +401,27 @@ function RegistrationForm() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto py-10 px-4 sm:px-6">
+    <div className="max-w-3xl mx-auto py-4 sm:py-10 px-1 sm:px-6">
       {/* Header Banner */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 mb-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-700 text-white font-bold text-lg shadow-sm">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-8 mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 pb-4 sm:pb-6 border-b border-slate-100">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl sm:rounded-2xl bg-emerald-700 text-white font-bold text-base sm:text-lg shadow-sm">
               SIC
             </div>
             <div>
-              <h1 className="text-xl font-black text-slate-900 tracking-tight">
+              <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
                 SIC Member Registration
               </h1>
-              <p className="text-xs text-slate-500">
+              <p className="text-[11px] sm:text-xs text-slate-500">
                 Institutional Innovation &amp; Operations Management System
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[11px] font-bold text-slate-700 truncate max-w-[180px]">
+          <div className="flex items-center gap-2 bg-slate-50 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 max-w-full">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            <span className="text-[11px] font-bold text-slate-700 truncate max-w-[200px] sm:max-w-[180px]">
               {currentUser?.email}
             </span>
           </div>
@@ -429,7 +429,7 @@ function RegistrationForm() {
 
         {/* Correction Notice Alert if applicable */}
         {correctionNotes && (
-          <div className="mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+          <div className="mt-4 p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-2.5 sm:gap-3">
             <AlertCircle className="h-5 w-5 text-amber-700 shrink-0 mt-0.5" />
             <div>
               <div className="text-xs font-bold text-amber-900">Application Correction Requested</div>
@@ -443,7 +443,7 @@ function RegistrationForm() {
           </div>
         )}
 
-        <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 flex items-center gap-2">
+        <div className="mt-3 sm:mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] sm:text-xs text-slate-600 flex items-center gap-2">
           <Info className="h-4 w-4 text-emerald-700 shrink-0" />
           <span>
             Google authenticated successfully. To complete your SIC induction, submit your institutional details below for Associate Admin approval.
@@ -452,7 +452,7 @@ function RegistrationForm() {
       </div>
 
       {/* Registration Form */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-8 space-y-6">
         {errorMessage && (
           <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2">
             <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
@@ -466,7 +466,7 @@ function RegistrationForm() {
             <Users className="h-3.5 w-3.5" /> 1. Personal &amp; Profile Details
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6 items-center">
             {/* Avatar Preview & Upload */}
             <div className="flex flex-col items-center justify-center p-4 border border-dashed border-slate-200 rounded-2xl bg-slate-50 text-center">
               <div className="h-20 w-20 rounded-2xl bg-slate-200 overflow-hidden relative shadow-inner mb-3">
@@ -485,8 +485,8 @@ function RegistrationForm() {
                 )}
               </div>
 
-              <label className="cursor-pointer text-[11px] font-bold text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1 px-3 py-1.5 bg-white rounded-lg border border-slate-200 shadow-2xs">
-                <Upload className="h-3 w-3" />
+              <label className="cursor-pointer text-xs font-bold text-emerald-700 hover:text-emerald-800 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 min-h-[44px] bg-white rounded-xl border border-slate-200 shadow-2xs hover:bg-slate-50 active:scale-[0.98] transition-all">
+                <Upload className="h-3.5 w-3.5" />
                 <span>Upload Photo</span>
                 <input
                   type="file"
@@ -495,12 +495,12 @@ function RegistrationForm() {
                   className="hidden"
                 />
               </label>
-              <span className="text-[10px] text-slate-400 mt-1">JPG, PNG, WebP &le; 5MB (Optional)</span>
+              <span className="text-[10px] text-slate-400 mt-1.5">JPG, PNG, WebP &le; 5MB (Optional)</span>
             </div>
 
             {/* Full Name & Email */}
             <div className="md:col-span-2 space-y-4">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Full Name (Legal / Institutional)</label>
                 <input
                   type="text"
@@ -508,17 +508,17 @@ function RegistrationForm() {
                   placeholder="e.g. Aarav Patel"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
+                  className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
                 />
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700">Institutional Email (Verified by Google)</label>
                 <input
                   type="email"
                   disabled
                   value={currentUser?.email || ''}
-                  className="w-full text-xs p-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-medium cursor-not-allowed"
+                  className="w-full text-xs p-3 min-h-[44px] bg-slate-100 border border-slate-200 rounded-xl text-slate-500 font-medium cursor-not-allowed"
                 />
               </div>
             </div>
@@ -546,7 +546,7 @@ function RegistrationForm() {
                   setSelectedYearId('');
                   setSelectedDivisionId('');
                 }}
-                className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
               >
                 <option value="">Select College</option>
                 {colleges.map((col) => (
@@ -571,7 +571,7 @@ function RegistrationForm() {
                   setSelectedYearId('');
                   setSelectedDivisionId('');
                 }}
-                className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium disabled:opacity-50"
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium disabled:opacity-50"
               >
                 <option value="">
                   {loadingCourses ? 'Loading Courses...' : selectedCollegeId ? 'Select Course' : 'Select College First'}
@@ -597,7 +597,7 @@ function RegistrationForm() {
                   setSelectedYearId(e.target.value);
                   setSelectedDivisionId('');
                 }}
-                className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium disabled:opacity-50"
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium disabled:opacity-50"
               >
                 <option value="">
                   {loadingYears ? 'Loading Years...' : selectedCourseId ? 'Select Academic Year' : 'Select Course First'}
@@ -620,7 +620,7 @@ function RegistrationForm() {
                 disabled={!selectedYearId || loadingDivisions}
                 value={selectedDivisionId}
                 onChange={(e) => setSelectedDivisionId(e.target.value)}
-                className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium disabled:opacity-50"
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium disabled:opacity-50"
               >
                 <option value="">
                   {loadingDivisions ? 'Loading Divisions...' : selectedYearId ? 'Select Division' : 'Select Year First'}
@@ -644,7 +644,7 @@ function RegistrationForm() {
                 placeholder="e.g. 2026-PGDM-042 or 104"
                 value={rollNumber}
                 onChange={(e) => setRollNumber(e.target.value)}
-                className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-mono font-medium"
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-mono font-medium"
               />
               <p className="text-[10px] text-slate-400 mt-0.5">
                 Roll number must match your college student ID card. Unique within your division.
@@ -673,16 +673,16 @@ function RegistrationForm() {
               </span>
             </label>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {availableGroups.map((group) => {
                 const isSelected = memberGroupIds.includes(group.id);
                 return (
                   <div
                     key={`member-${group.id}`}
                     onClick={() => toggleMemberGroup(group.id)}
-                    className={`p-3 rounded-2xl border text-xs cursor-pointer transition-all flex items-start gap-2.5 ${
+                    className={`p-3.5 rounded-2xl border text-xs cursor-pointer select-none transition-all flex items-start gap-3 min-h-[52px] active:scale-[0.99] touch-manipulation ${
                       isSelected
-                        ? 'border-emerald-500 bg-emerald-50/60 text-emerald-950 font-bold'
+                        ? 'border-emerald-500 bg-emerald-50/70 text-emerald-950 font-bold shadow-2xs'
                         : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700'
                     }`}
                   >
@@ -690,12 +690,12 @@ function RegistrationForm() {
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => {}}
-                      className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500"
+                      className="mt-0.5 h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500 shrink-0"
                     />
                     <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span>{group.name}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-white border border-slate-200 font-mono text-slate-500">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="leading-snug">{group.name}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-white border border-slate-200 font-mono text-slate-500 shrink-0">
                           {group.code}
                         </span>
                       </div>
@@ -727,16 +727,16 @@ function RegistrationForm() {
               Request leadership for projects or groups you lead. Leadership is reviewed and approved separately by Administrators.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {availableGroups.map((group) => {
                 const isSelected = leaderGroupIds.includes(group.id);
                 return (
                   <div
                     key={`leader-${group.id}`}
                     onClick={() => toggleLeaderGroup(group.id)}
-                    className={`p-3 rounded-2xl border text-xs cursor-pointer transition-all flex items-start gap-2.5 ${
+                    className={`p-3.5 rounded-2xl border text-xs cursor-pointer select-none transition-all flex items-start gap-3 min-h-[52px] active:scale-[0.99] touch-manipulation ${
                       isSelected
-                        ? 'border-amber-500 bg-amber-50/70 text-amber-950 font-bold'
+                        ? 'border-amber-500 bg-amber-50/80 text-amber-950 font-bold shadow-2xs'
                         : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100 text-slate-700'
                     }`}
                   >
@@ -744,12 +744,12 @@ function RegistrationForm() {
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => {}}
-                      className="mt-0.5 rounded text-amber-600 focus:ring-amber-500"
+                      className="mt-0.5 h-4 w-4 rounded text-amber-600 focus:ring-amber-500 shrink-0"
                     />
                     <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span>{group.name}</span>
-                        <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-sm font-semibold">
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="leading-snug">{group.name}</span>
+                        <span className="text-[10px] text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-sm font-semibold shrink-0">
                           Lead Candidate
                         </span>
                       </div>
@@ -770,7 +770,7 @@ function RegistrationForm() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full sm:w-auto px-6 py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full sm:w-auto px-6 py-3 min-h-[48px] bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
           >
             {isSubmitting ? (
               <>

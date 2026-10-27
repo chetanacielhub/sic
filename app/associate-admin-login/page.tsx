@@ -132,17 +132,17 @@ function AssociateAdminLoginForm() {
   };
 
   return (
-    <div className="min-h-[80vh] flex flex-col justify-center items-center py-10 px-4">
-      <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-xl p-8 space-y-6">
+    <div className="min-h-[80vh] flex flex-col justify-center items-center py-6 sm:py-10 px-3 sm:px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl p-5 sm:p-8 space-y-5 sm:space-y-6">
         {/* Header */}
         <div className="text-center">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-900 text-white font-bold text-xl shadow-md mb-3">
-            <ShieldCheck className="h-7 w-7 text-emerald-400" />
+          <div className="inline-flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-slate-900 text-white font-bold text-xl shadow-md mb-3">
+            <ShieldCheck className="h-6 w-6 sm:h-7 sm:w-7 text-emerald-400" />
           </div>
           <div className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-700 border border-slate-200 mb-1">
             Institutional Gateway
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
             Associate Admin Portal
           </h1>
           <p className="text-xs text-slate-500 mt-1 leading-relaxed">
@@ -164,7 +164,7 @@ function AssociateAdminLoginForm() {
             type="button"
             onClick={handleGoogleAdminLogin}
             disabled={isGoogleLoading}
-            className="w-full py-3.5 px-4 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-2xs hover:shadow-xs disabled:opacity-60 flex items-center justify-center gap-3 cursor-pointer active:scale-[0.99]"
+            className="w-full min-h-[48px] py-3.5 px-4 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-2xs hover:shadow-xs disabled:opacity-60 flex items-center justify-center gap-3 cursor-pointer active:scale-[0.99] touch-manipulation"
           >
             {isGoogleLoading ? (
               <>
@@ -189,11 +189,11 @@ function AssociateAdminLoginForm() {
           <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
             <Users className="h-3 w-3" /> Quick Evaluation Credentials:
           </div>
-          <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+          <div className="grid grid-cols-2 gap-2 text-[11px]">
             <button
               type="button"
               onClick={() => loginWithDemoAdmin('aarav.patel@sic.internal')}
-              className="p-2 text-left bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200/60"
+              className="p-2.5 min-h-[44px] text-left bg-slate-50 hover:bg-slate-100 active:bg-slate-200 rounded-xl border border-slate-200/60 cursor-pointer touch-manipulation"
             >
               <div className="font-bold text-slate-800">Aarav Patel</div>
               <div className="text-slate-400 truncate">Associate Admin</div>
@@ -201,7 +201,7 @@ function AssociateAdminLoginForm() {
             <button
               type="button"
               onClick={() => loginWithDemoAdmin('director@sic.internal')}
-              className="p-2 text-left bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200/60"
+              className="p-2.5 min-h-[44px] text-left bg-slate-50 hover:bg-slate-100 active:bg-slate-200 rounded-xl border border-slate-200/60 cursor-pointer touch-manipulation"
             >
               <div className="font-bold text-slate-800">Director</div>
               <div className="text-slate-400 truncate">Super Admin</div>

@@ -120,21 +120,21 @@ export default async function SessionsListPage() {
                 <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                   <Link
                     href={`/sic/sessions/${session.id}/qr`}
-                    className="flex-1 text-center py-1.5 px-2 text-xs font-bold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-2xs flex items-center justify-center gap-1"
+                    className="flex-1 text-center py-2.5 min-h-[42px] px-2 text-xs font-bold rounded-xl bg-slate-900 text-white hover:bg-slate-800 active:scale-[0.98] transition-all shadow-2xs flex items-center justify-center gap-1.5 touch-manipulation"
                   >
-                    <QrCode className="h-3.5 w-3.5" /> QR
+                    <QrCode className="h-3.5 w-3.5" /> <span>QR</span>
                   </Link>
                   <Link
                     href={`/sic/sessions/${session.id}/live`}
-                    className="flex-1 text-center py-1.5 px-2 text-xs font-bold rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors flex items-center justify-center gap-1"
+                    className="flex-1 text-center py-2.5 min-h-[42px] px-2 text-xs font-bold rounded-xl bg-emerald-50 text-emerald-800 hover:bg-emerald-100 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 touch-manipulation"
                   >
-                    <Radio className="h-3.5 w-3.5" /> Monitor
+                    <Radio className="h-3.5 w-3.5" /> <span>Monitor</span>
                   </Link>
                   <Link
                     href={`/sic/mom/${session.id}`}
-                    className="flex-1 text-center py-1.5 px-2 text-xs font-bold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors flex items-center justify-center gap-1"
+                    className="flex-1 text-center py-2.5 min-h-[42px] px-2 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5 touch-manipulation"
                   >
-                    <FileText className="h-3.5 w-3.5" /> MoM
+                    <FileText className="h-3.5 w-3.5" /> <span>MoM</span>
                   </Link>
                 </div>
               </div>

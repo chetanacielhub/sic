@@ -126,20 +126,20 @@ function RegistrationStatusContent() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-12 px-4 sm:px-6 space-y-6">
+    <div className="max-w-2xl mx-auto py-6 sm:py-12 px-2 sm:px-6 space-y-4 sm:space-y-6">
       {/* Status Card Header */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 text-center space-y-4">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm p-5 sm:p-8 text-center space-y-4">
         {/* Status Icon & Badge */}
         {status === 'PENDING' && (
           <>
-            <div className="h-16 w-16 bg-amber-50 text-amber-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
-              <Clock className="h-8 w-8 animate-pulse" />
+            <div className="h-14 w-14 sm:h-16 sm:w-16 bg-amber-50 text-amber-600 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto shadow-sm">
+              <Clock className="h-7 w-7 sm:h-8 sm:w-8 animate-pulse" />
             </div>
             <div>
               <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
                 Application Under Review
               </span>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-2">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-2">
                 Awaiting Associate Admin Review
               </h1>
               <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
@@ -151,14 +151,14 @@ function RegistrationStatusContent() {
 
         {status === 'NEEDS_CORRECTION' && (
           <>
-            <div className="h-16 w-16 bg-amber-50 text-amber-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
-              <FileEdit className="h-8 w-8 text-amber-600" />
+            <div className="h-14 w-14 sm:h-16 sm:w-16 bg-amber-50 text-amber-600 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto shadow-sm">
+              <FileEdit className="h-7 w-7 sm:h-8 sm:w-8 text-amber-600" />
             </div>
             <div>
               <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
                 Action Required
               </span>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-2">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-2">
                 Correction Requested
               </h1>
               <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
@@ -167,7 +167,7 @@ function RegistrationStatusContent() {
             </div>
 
             {registration?.correction_notes && (
-              <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-left space-y-1">
+              <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-amber-50/80 border border-amber-200 text-left space-y-1">
                 <div className="text-[11px] font-bold text-amber-900 uppercase tracking-wider">
                   Reviewer Feedback:
                 </div>
@@ -180,7 +180,7 @@ function RegistrationStatusContent() {
             <div className="pt-2">
               <Link
                 href="/register?correction=true"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 min-h-[48px] bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-[0.98] touch-manipulation"
               >
                 <FileEdit className="h-4 w-4" />
                 <span>Edit &amp; Resubmit Application</span>
@@ -191,14 +191,14 @@ function RegistrationStatusContent() {
 
         {status === 'APPROVED' && (
           <>
-            <div className="h-16 w-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
-              <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+            <div className="h-14 w-14 sm:h-16 sm:w-16 bg-emerald-50 text-emerald-600 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto shadow-sm">
+              <CheckCircle2 className="h-7 w-7 sm:h-8 sm:w-8 text-emerald-600" />
             </div>
             <div>
               <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
                 Membership Approved
               </span>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-2">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-2">
                 Welcome to SIC!
               </h1>
               <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
@@ -209,7 +209,7 @@ function RegistrationStatusContent() {
             <div className="pt-2">
               <Link
                 href="/dashboard"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 min-h-[48px] bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm active:scale-[0.98] touch-manipulation"
               >
                 <span>Proceed to SIC Dashboard</span>
                 <ArrowRight className="h-4 w-4" />
@@ -220,14 +220,14 @@ function RegistrationStatusContent() {
 
         {status === 'REJECTED' && (
           <>
-            <div className="h-16 w-16 bg-rose-50 text-rose-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
-              <XCircle className="h-8 w-8 text-rose-600" />
+            <div className="h-14 w-14 sm:h-16 sm:w-16 bg-rose-50 text-rose-600 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto shadow-sm">
+              <XCircle className="h-7 w-7 sm:h-8 sm:w-8 text-rose-600" />
             </div>
             <div>
               <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200">
                 Application Not Approved
               </span>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-2">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-2">
                 Registration Rejected
               </h1>
               <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
@@ -236,7 +236,7 @@ function RegistrationStatusContent() {
             </div>
 
             {registration?.rejection_reason && (
-              <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200 text-left space-y-1">
+              <div className="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-rose-50/80 border border-rose-200 text-left space-y-1">
                 <div className="text-[11px] font-bold text-rose-900 uppercase tracking-wider">
                   Reason for Rejection:
                 </div>
@@ -250,14 +250,14 @@ function RegistrationStatusContent() {
 
         {status === 'SUSPENDED' && (
           <>
-            <div className="h-16 w-16 bg-slate-100 text-slate-600 rounded-3xl flex items-center justify-center mx-auto shadow-sm">
-              <ShieldAlert className="h-8 w-8 text-slate-600" />
+            <div className="h-14 w-14 sm:h-16 sm:w-16 bg-slate-100 text-slate-600 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto shadow-sm">
+              <ShieldAlert className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
             </div>
             <div>
               <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-200 text-slate-800">
                 Access Suspended
               </span>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight mt-2">
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-2">
                 Account Suspended
               </h1>
               <p className="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
@@ -268,13 +268,13 @@ function RegistrationStatusContent() {
         )}
 
         {/* Refresh Action */}
-        <div className="pt-4 flex items-center justify-center gap-3">
+        <div className="pt-3 sm:pt-4 flex items-center justify-center gap-3">
           <button
             type="button"
             onClick={loadStatus}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+            className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 min-h-[44px] text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 cursor-pointer active:scale-[0.98] touch-manipulation"
           >
-            <RefreshCw className="h-3 w-3" />
+            <RefreshCw className="h-3.5 w-3.5" />
             <span>Check for Updates</span>
           </button>
         </div>

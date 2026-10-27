@@ -150,14 +150,14 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-[80vh] flex flex-col justify-center items-center py-8 px-4">
-      <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200 shadow-xl p-8 space-y-6">
+    <div className="min-h-[80vh] flex flex-col justify-center items-center py-6 sm:py-8 px-3 sm:px-4">
+      <div className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl p-5 sm:p-8 space-y-5 sm:space-y-6">
         {/* Branding & Welcome Header */}
         <div className="text-center">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-700 text-white font-bold text-xl shadow-md mb-3">
+          <div className="inline-flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl bg-emerald-700 text-white font-bold text-xl shadow-md mb-3">
             SIC
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Welcome Back</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Welcome Back</h1>
           <p className="text-xs text-slate-500 mt-1">
             Sign in to access your SIC Innovation project, live sessions, and attendance operations.
           </p>
@@ -177,7 +177,7 @@ function LoginForm() {
             type="button"
             onClick={handleGoogleLogin}
             disabled={isLoading || isGoogleLoading}
-            className="w-full py-3 px-4 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-2xs hover:shadow-xs disabled:opacity-60 flex items-center justify-center gap-3 cursor-pointer active:scale-[0.99]"
+            className="w-full min-h-[48px] py-3.5 px-4 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-2xs hover:shadow-xs disabled:opacity-60 flex items-center justify-center gap-3 cursor-pointer active:scale-[0.99] touch-manipulation"
           >
             {isGoogleLoading ? (
               <>
@@ -204,7 +204,7 @@ function LoginForm() {
 
         {/* Form */}
         <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
               <Mail className="h-3.5 w-3.5 text-slate-400" /> Institutional Email
             </label>
@@ -214,11 +214,11 @@ function LoginForm() {
               placeholder="e.g. director@sic.internal"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
+              className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
             />
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Lock className="h-3.5 w-3.5 text-slate-400" /> Password
@@ -237,12 +237,13 @@ function LoginForm() {
                 placeholder="••••••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full text-xs p-3 pr-10 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium font-mono"
+                className="w-full text-xs p-3 pr-10 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium font-mono"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 p-1"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -252,7 +253,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={isLoading || isGoogleLoading}
-            className="w-full py-3 px-4 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full min-h-[48px] py-3 px-4 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
           >
             {isLoading ? (
               <span>Authenticating Session...</span>
@@ -264,17 +265,16 @@ function LoginForm() {
           </button>
         </form>
 
-
         {/* Quick Identity Selector (Evaluation & Testing Helper) */}
         <div className="pt-4 border-t border-slate-100">
           <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
             <Users className="h-3 w-3" /> Quick Test Identities:
           </div>
-          <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+          <div className="grid grid-cols-2 gap-2 text-[11px]">
             <button
               type="button"
               onClick={() => fillDemoAccount('director@sic.internal')}
-              className="p-2 text-left bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-100"
+              className="p-2.5 min-h-[44px] text-left bg-slate-50 hover:bg-slate-100 active:bg-slate-200 rounded-xl border border-slate-200/60 cursor-pointer touch-manipulation"
             >
               <div className="font-bold text-slate-800">Super Admin</div>
               <div className="text-slate-400 truncate">director@sic.internal</div>

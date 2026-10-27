@@ -323,18 +323,18 @@ export function AssociateAdminConsole({
       )}
 
       {/* Top Banner / Scope Header */}
-      <div className="bg-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              <span>
+      <div className="bg-slate-900 rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-white shadow-xl relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6">
+          <div className="space-y-1.5 sm:space-y-2">
+            <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] sm:text-[11px] font-bold border border-emerald-500/30">
+              <ShieldCheck className="h-3 w-3 sm:h-3.5 sm:w-3.5 shrink-0" />
+              <span className="truncate max-w-[260px] sm:max-w-none">
                 {scope.isSuperAdmin
                   ? 'Platform Super Admin Scope (All Institutions)'
                   : `Associate Admin Scope: ${colleges.map(c => c.code).join(', ') || 'Assigned Colleges'}`}
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight">
               Associate Administrator Console
             </h1>
             <p className="text-slate-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
@@ -342,11 +342,11 @@ export function AssociateAdminConsole({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-800/80 p-2 rounded-2xl border border-slate-700/60 text-xs">
-            <div className="h-10 w-10 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center">
+          <div className="flex items-center gap-2 bg-slate-800/80 p-2 rounded-2xl border border-slate-700/60 text-xs shrink-0">
+            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-emerald-600 text-white font-bold flex items-center justify-center text-xs sm:text-sm">
               {currentMember.full_name.charAt(0)}
             </div>
-            <div className="pr-3 text-right">
+            <div className="pr-2 sm:pr-3 text-left">
               <div className="font-bold">{currentMember.full_name}</div>
               <div className="text-[10px] text-slate-400 font-mono">{currentMember.member_code}</div>
             </div>
@@ -354,38 +354,39 @@ export function AssociateAdminConsole({
         </div>
 
         {/* Metric Badges */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 pt-6 border-t border-slate-800/80">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-slate-800/80">
           <div className="bg-slate-800/50 p-3 rounded-2xl border border-slate-800">
             <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Pending Review</div>
-            <div className="text-2xl font-black text-white mt-1">{pendingCount}</div>
+            <div className="text-xl sm:text-2xl font-black text-white mt-1">{pendingCount}</div>
           </div>
           <div className="bg-slate-800/50 p-3 rounded-2xl border border-slate-800">
             <div className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Approved Members</div>
-            <div className="text-2xl font-black text-white mt-1">{approvedCount}</div>
+            <div className="text-xl sm:text-2xl font-black text-white mt-1">{approvedCount}</div>
           </div>
           <div className="bg-slate-800/50 p-3 rounded-2xl border border-slate-800">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Colleges Managed</div>
-            <div className="text-2xl font-black text-white mt-1">{colleges.length}</div>
+            <div className="text-xl sm:text-2xl font-black text-white mt-1">{colleges.length}</div>
           </div>
           <div className="bg-slate-800/50 p-3 rounded-2xl border border-slate-800">
             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Divisions</div>
-            <div className="text-2xl font-black text-white mt-1">{divisions.length}</div>
+            <div className="text-xl sm:text-2xl font-black text-white mt-1">{divisions.length}</div>
           </div>
         </div>
       </div>
 
       {/* Main Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('REGISTRATIONS')}
-          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+          className={`px-3.5 sm:px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 min-h-[44px] cursor-pointer touch-manipulation ${
             activeTab === 'REGISTRATIONS'
               ? 'bg-emerald-700 text-white shadow-sm'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <Users className="h-4 w-4" />
-          <span>Membership Registrations</span>
+          <span className="inline sm:hidden">Registrations</span>
+          <span className="hidden sm:inline">Membership Registrations</span>
           {pendingCount > 0 && (
             <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-400 text-amber-950 font-black">
               {pendingCount}
@@ -395,14 +396,15 @@ export function AssociateAdminConsole({
 
         <button
           onClick={() => setActiveTab('ACADEMIC')}
-          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 ${
+          className={`px-3.5 sm:px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 shrink-0 min-h-[44px] cursor-pointer touch-manipulation ${
             activeTab === 'ACADEMIC'
               ? 'bg-emerald-700 text-white shadow-sm'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
           }`}
         >
           <GraduationCap className="h-4 w-4" />
-          <span>Academic Structure (Colleges &bull; Courses &bull; Divisions)</span>
+          <span className="inline sm:hidden">Academic Structure</span>
+          <span className="hidden sm:inline">Academic Structure (Colleges &bull; Courses &bull; Divisions)</span>
         </button>
       </div>
 
@@ -412,12 +414,12 @@ export function AssociateAdminConsole({
       {activeTab === 'REGISTRATIONS' && (
         <div className="space-y-6">
           {/* Controls: Search & Status Pills */}
-          <div className="bg-white rounded-3xl border border-slate-200 p-4 sm:p-6 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 p-3.5 sm:p-6 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
             {/* Status Pills */}
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <div className="flex items-center gap-1.5 text-xs overflow-x-auto no-scrollbar pb-1 sm:flex-wrap">
               {[
                 { id: 'PENDING', label: 'Pending', count: pendingCount, color: 'amber' },
-                { id: 'NEEDS_CORRECTION', label: 'Needs Correction', count: correctionCount, color: 'amber' },
+                { id: 'NEEDS_CORRECTION', label: 'Correction', count: correctionCount, color: 'amber' },
                 { id: 'APPROVED', label: 'Approved', count: approvedCount, color: 'emerald' },
                 { id: 'REJECTED', label: 'Rejected', count: registrations.filter(r => r.status === 'REJECTED').length, color: 'rose' },
                 { id: 'ALL', label: 'All Requests', count: registrations.length, color: 'slate' },
@@ -427,7 +429,7 @@ export function AssociateAdminConsole({
                   <button
                     key={pill.id}
                     onClick={() => setStatusFilter(pill.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 min-h-[40px] touch-manipulation ${
                       isActive
                         ? 'bg-slate-900 text-white shadow-2xs'
                         : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
@@ -447,15 +449,15 @@ export function AssociateAdminConsole({
             </div>
 
             {/* Search & College Filter */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <div className="relative flex-1 md:w-64">
-                <Search className="h-3.5 w-3.5 absolute left-3 top-3 text-slate-400" />
+                <Search className="h-3.5 w-3.5 absolute left-3 top-3.5 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Search name, roll no, email..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full text-xs pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
+                  className="w-full text-xs pl-9 pr-3 py-2.5 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
                 />
               </div>
 
@@ -463,7 +465,7 @@ export function AssociateAdminConsole({
                 <select
                   value={filterCollegeId}
                   onChange={e => setFilterCollegeId(e.target.value)}
-                  className="text-xs p-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
+                  className="text-xs p-2.5 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
                 >
                   <option value="ALL">All Colleges</option>
                   {colleges.map(c => (
@@ -604,27 +606,29 @@ export function AssociateAdminConsole({
 
                     {/* Review Action Controls */}
                     {reg.status === 'PENDING' && (
-                      <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openReviewModal(reg, 'REQUEST_CORRECTION')}
-                          className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl text-xs font-bold transition-colors border border-amber-200 cursor-pointer"
-                        >
-                          Request Correction
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openReviewModal(reg, 'REJECT')}
-                          className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-colors border border-rose-200 cursor-pointer"
-                        >
-                          Reject
-                        </button>
+                      <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+                        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openReviewModal(reg, 'REQUEST_CORRECTION')}
+                            className="px-3 sm:px-4 py-2.5 min-h-[44px] bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl text-xs font-bold transition-colors border border-amber-200 cursor-pointer active:scale-[0.98] text-center"
+                          >
+                            Correction
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openReviewModal(reg, 'REJECT')}
+                            className="px-3 sm:px-4 py-2.5 min-h-[44px] bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-colors border border-rose-200 cursor-pointer active:scale-[0.98] text-center"
+                          >
+                            Reject
+                          </button>
+                        </div>
                         <button
                           type="button"
                           onClick={() => openReviewModal(reg, 'APPROVE')}
-                          className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                          className="w-full sm:w-auto px-5 py-2.5 min-h-[44px] bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer active:scale-[0.98]"
                         >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <CheckCircle2 className="h-4 w-4" />
                           <span>Review &amp; Approve</span>
                         </button>
                       </div>
@@ -848,10 +852,10 @@ export function AssociateAdminConsole({
       {/* REVIEW ACTION MODAL (APPROVE / REJECT / CORRECTION)                    */}
       {/* ===================================================================== */}
       {reviewModalTarget && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 sm:p-8 space-y-6">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <h2 className="text-base font-black text-slate-900">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full max-h-[90dvh] overflow-y-auto p-4 sm:p-8 space-y-4 sm:space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 sm:pb-4">
+              <h2 className="text-sm sm:text-base font-black text-slate-900">
                 {reviewAction === 'APPROVE' && 'Approve Membership & Leadership'}
                 {reviewAction === 'REQUEST_CORRECTION' && 'Request Application Correction'}
                 {reviewAction === 'REJECT' && 'Reject Registration'}
@@ -994,12 +998,10 @@ export function AssociateAdminConsole({
         </div>
       )}
 
-      {/* ===================================================================== */}
-      {/* MODAL: ADD COLLEGE                                                    */}
-      {/* ===================================================================== */}
+      {/* MODAL: ADD COLLEGE */}
       {showAddCollegeModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <form onSubmit={handleCreateCollege} className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <form onSubmit={handleCreateCollege} className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-5 sm:p-6 space-y-4">
             <h3 className="text-sm font-bold text-slate-900">Add New College / Institution</h3>
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-700">College Name</label>
@@ -1009,7 +1011,7 @@ export function AssociateAdminConsole({
                 placeholder="e.g. Chetana's Institute of Management"
                 value={newCollegeName}
                 onChange={e => setNewCollegeName(e.target.value)}
-                className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-600"
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-600"
               />
             </div>
             <div className="space-y-1">
@@ -1020,20 +1022,20 @@ export function AssociateAdminConsole({
                 placeholder="e.g. CIMR"
                 value={newCollegeCode}
                 onChange={e => setNewCollegeCode(e.target.value)}
-                className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-600 uppercase font-mono"
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-600 uppercase font-mono"
               />
             </div>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setShowAddCollegeModal(false)}
-                className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold text-slate-700"
+                className="px-4 py-2.5 min-h-[44px] bg-slate-100 rounded-xl text-xs font-bold text-slate-700 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm"
+                className="px-4 py-2.5 min-h-[44px] bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
               >
                 Save College
               </button>
@@ -1046,8 +1048,8 @@ export function AssociateAdminConsole({
       {/* MODAL: ADD COURSE                                                     */}
       {/* ===================================================================== */}
       {showAddCourseModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <form onSubmit={handleCreateCourse} className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <form onSubmit={handleCreateCourse} className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-5 sm:p-6 space-y-4">
             <h3 className="text-sm font-bold text-slate-900">Add Course to College</h3>
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-700">Course / Degree Name</label>
@@ -1057,7 +1059,7 @@ export function AssociateAdminConsole({
                 placeholder="e.g. Master of Business Administration"
                 value={newCourseName}
                 onChange={e => setNewCourseName(e.target.value)}
-                className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-600"
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-600"
               />
             </div>
             <div className="space-y-1">
@@ -1068,7 +1070,7 @@ export function AssociateAdminConsole({
                 placeholder="e.g. MBA"
                 value={newCourseCode}
                 onChange={e => setNewCourseCode(e.target.value)}
-                className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-600 uppercase font-mono"
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-600 uppercase font-mono"
               />
             </div>
             <div className="space-y-1">
@@ -1079,20 +1081,20 @@ export function AssociateAdminConsole({
                 max={6}
                 value={newCourseDuration}
                 onChange={e => setNewCourseDuration(Number(e.target.value))}
-                className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl"
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl"
               />
             </div>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setShowAddCourseModal(false)}
-                className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold text-slate-700"
+                className="px-4 py-2.5 min-h-[44px] bg-slate-100 rounded-xl text-xs font-bold text-slate-700 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm"
+                className="px-4 py-2.5 min-h-[44px] bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
               >
                 Save Course
               </button>
@@ -1105,8 +1107,8 @@ export function AssociateAdminConsole({
       {/* MODAL: CONFIGURE DIVISIONS (BATCH COUNT)                             */}
       {/* ===================================================================== */}
       {showAddDivisionModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-5 sm:p-6 space-y-4">
             <h3 className="text-sm font-bold text-slate-900">Configure Divisions for Academic Year</h3>
             <p className="text-xs text-slate-500">
               Set the number of divisions. Divisions will be created as Division A, B, C...
@@ -1119,21 +1121,21 @@ export function AssociateAdminConsole({
                 max={8}
                 value={batchDivisionCount}
                 onChange={e => setBatchDivisionCount(Number(e.target.value))}
-                className="w-full text-xs p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold"
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl font-bold"
               />
             </div>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setShowAddDivisionModal(false)}
-                className="px-4 py-2 bg-slate-100 rounded-xl text-xs font-bold text-slate-700"
+                className="px-4 py-2.5 min-h-[44px] bg-slate-100 rounded-xl text-xs font-bold text-slate-700 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleBatchSetDivisions}
-                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm"
+                className="px-4 py-2.5 min-h-[44px] bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
               >
                 Apply Divisions
               </button>
