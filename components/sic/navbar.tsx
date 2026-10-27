@@ -17,10 +17,11 @@ import {
   BarChart3, 
   LogIn, 
   LogOut, 
-  UserCheck, 
-  FolderKanban,
-  LayoutDashboard
+  LayoutDashboard,
+  ShieldCheck
 } from 'lucide-react';
+
+
 import { createClient } from '@/lib/supabase/client';
 
 export function SicNavbar() {
@@ -110,23 +111,42 @@ export function SicNavbar() {
         </nav>
 
         {/* Auth CTA & Identity Indicator */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Quick link to Associate Admin Portal */}
+          <Link
+            href="/associate-admin-login"
+            className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
+            title="Associate Administrator Console"
+          >
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Admin Portal</span>
+          </Link>
+
           {user ? (
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:flex flex-col text-right">
-                <span className="text-xs font-bold text-slate-900 truncate max-w-[140px]">
-                  {user.email?.split('@')[0]}
-                </span>
-                <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-sm">
-                  Active Session
-                </span>
-              </div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors text-left"
+                title="View Institutional Profile"
+              >
+                <div className="h-7 w-7 rounded-lg bg-emerald-700 text-white font-bold flex items-center justify-center text-xs">
+                  {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div className="hidden sm:flex flex-col">
+                  <span className="text-xs font-bold text-slate-900 truncate max-w-[120px]">
+                    {user.email?.split('@')[0]}
+                  </span>
+                  <span className="text-[9px] font-bold text-emerald-700 uppercase">
+                    Profile
+                  </span>
+                </div>
+              </Link>
 
               <button
                 type="button"
                 onClick={handleSignOut}
                 disabled={isSigningOut}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 text-slate-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 transition-colors cursor-pointer"
                 title="Sign out of current account"
               >
                 <LogOut className="h-3.5 w-3.5" />
@@ -134,16 +154,19 @@ export function SicNavbar() {
               </button>
             </div>
           ) : (
-            <Link
-              href="/login"
-              className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-emerald-700 text-white hover:bg-emerald-800 transition-colors shadow-sm"
-            >
-              <LogIn className="h-4 w-4" />
-              Sign In
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/login"
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-emerald-700 text-white hover:bg-emerald-800 transition-colors shadow-sm"
+              >
+                <LogIn className="h-4 w-4" />
+                <span>Sign In</span>
+              </Link>
+            </div>
           )}
         </div>
       </div>
     </header>
   );
 }
+

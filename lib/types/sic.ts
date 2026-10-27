@@ -9,9 +9,57 @@ export type OrgRole =
   | 'SIC_ADMIN'
   | 'OPERATIONS_MANAGER'
   | 'ATTENDANCE_AUDITOR'
+  | 'ASSOCIATE_ADMIN'
   | 'MEMBER';
 
 export type MemberStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
+
+export interface College {
+  id: string;
+  name: string;
+  code: string;
+  description?: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Course {
+  id: string;
+  college_id: string;
+  name: string;
+  code: string;
+  duration_years: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  college?: College;
+}
+
+export interface AcademicYear {
+  id: string;
+  course_id: string;
+  year_name: string;
+  year_number: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  course?: Course;
+}
+
+export interface Division {
+  id: string;
+  academic_year_id: string;
+  course_id: string;
+  college_id: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  academic_year?: AcademicYear;
+  course?: Course;
+  college?: College;
+}
 
 export interface Member {
   id: string;
@@ -28,7 +76,80 @@ export interface Member {
   joining_date: string;
   created_at: string;
   updated_at: string;
+  college_id?: string | null;
+  course_id?: string | null;
+  academic_year_id?: string | null;
+  division_id?: string | null;
+  roll_number?: string | null;
+  registration_id?: string | null;
+  college?: College;
+  course?: Course;
+  academic_year?: AcademicYear;
+  division?: Division;
 }
+
+export interface AssociateAdmin {
+  id: string;
+  member_id: string;
+  college_id?: string | null;
+  assigned_by?: string | null;
+  is_active: boolean;
+  created_at: string;
+  member?: Member;
+  college?: College;
+}
+
+export type RegistrationStatus = 'PENDING' | 'NEEDS_CORRECTION' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+
+export interface MemberRegistration {
+  id: string;
+  auth_user_id: string;
+  email: string;
+  full_name: string;
+  avatar_url?: string | null;
+  college_id: string;
+  course_id: string;
+  academic_year_id: string;
+  division_id: string;
+  roll_number: string;
+  status: RegistrationStatus;
+  correction_notes?: string | null;
+  rejection_reason?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  member_id?: string | null;
+  created_at: string;
+  updated_at: string;
+  college?: College;
+  course?: Course;
+  academic_year?: AcademicYear;
+  division?: Division;
+  requested_groups?: RegistrationGroup[];
+  reviewed_by_member?: Member;
+}
+
+export interface RegistrationGroup {
+  id: string;
+  registration_id: string;
+  group_id: string;
+  request_type: 'MEMBER' | 'LEADER';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  group?: Group;
+}
+
+export interface RegistrationAuditLog {
+  id: string;
+  registration_id: string;
+  action: string;
+  performed_by?: string | null;
+  notes?: string | null;
+  details?: Record<string, unknown>;
+  created_at: string;
+  performed_by_member?: Member;
+}
+
 
 export type GroupType = 'PERMANENT' | 'TEMPORARY' | 'PROJECT' | 'EVENT' | 'WORKSHOP';
 
@@ -254,7 +375,10 @@ export type Permission =
   | 'tasks.view'
   | 'tasks.manage'
   | 'analytics.view'
-  | 'audit.view';
+  | 'audit.view'
+  | 'academic.manage'
+  | 'registrations.review';
+
 
 export interface UserEffectiveContext {
   member: Member | null;

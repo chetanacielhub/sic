@@ -42,6 +42,7 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/api/')) {
     const isPublicApi =
       pathname.startsWith('/api/auth') ||
+      pathname.startsWith('/api/sic/academic') ||
       pathname === '/api/sic/attendance/check-in' ||
       pathname === '/api/sic/members' ||
       pathname === '/api/sic/groups' ||
@@ -71,6 +72,7 @@ export async function middleware(request: NextRequest) {
   const isPublicPage =
     pathname === '/' ||
     pathname === '/login' ||
+    pathname === '/associate-admin-login' ||
     pathname === '/forgot-password' ||
     pathname === '/reset-password' ||
     pathname.startsWith('/auth/callback') ||
@@ -78,20 +80,29 @@ export async function middleware(request: NextRequest) {
     pathname.includes('/qr') ||
     pathname.includes('/live');
 
-  // If unauthenticated and accessing a protected UI page, redirect to /login
+  // If unauthenticated and accessing a protected UI page
+
   if (!user && !isPublicPage) {
+    // If accessing associate admin dashboard without login, redirect to associate admin login
+    if (pathname.startsWith('/associate-admin')) {
+      const redirectUrl = new URL('/associate-admin-login', request.url);
+      redirectUrl.searchParams.set('redirectTo', pathname);
+      return NextResponse.redirect(redirectUrl);
+    }
+
     const redirectUrl = new URL('/login', request.url);
     redirectUrl.searchParams.set('redirectTo', pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
-  // If already authenticated and accessing login or forgot-password, redirect to /dashboard
+  // If authenticated user tries to access /login or /forgot-password
   if (user && (pathname === '/login' || pathname === '/forgot-password')) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
   return supabaseResponse;
 }
+
 
 export const config = {
   matcher: [
