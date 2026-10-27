@@ -68,9 +68,16 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // 3. Public Web Pages
+  // 3. Root index handling: start with /login if unauthenticated, or /dashboard if authenticated
+  if (pathname === '/') {
+    if (user) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // 4. Public Web Pages
   const isPublicPage =
-    pathname === '/' ||
     pathname === '/login' ||
     pathname === '/associate-admin-login' ||
     pathname === '/forgot-password' ||
@@ -81,7 +88,6 @@ export async function middleware(request: NextRequest) {
     pathname.includes('/live');
 
   // If unauthenticated and accessing a protected UI page
-
   if (!user && !isPublicPage) {
     // If accessing associate admin dashboard without login, redirect to associate admin login
     if (pathname.startsWith('/associate-admin')) {

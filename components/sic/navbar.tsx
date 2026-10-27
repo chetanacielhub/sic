@@ -69,15 +69,21 @@ export function SicNavbar() {
     }
   };
 
-  const navLinks = [
-    { href: '/', label: 'Overview', icon: Building2 },
-    ...(user ? [{ href: '/dashboard', label: 'My Dashboard', icon: LayoutDashboard }] : []),
-    { href: '/sic/members', label: 'Members', icon: Users },
-    { href: '/sic/groups', label: 'Groups & Leads', icon: Layers },
-    { href: '/sic/sessions', label: 'Sessions', icon: CalendarDays },
-    { href: '/sic/check-in', label: 'Check-In', icon: QrCode },
-    { href: '/sic/reports', label: 'Analytics', icon: BarChart3 },
-  ];
+  const navLinks = user
+    ? [
+        { href: '/dashboard', label: 'My Dashboard', icon: LayoutDashboard },
+        { href: '/sic/members', label: 'Members', icon: Users },
+        { href: '/sic/groups', label: 'Groups & Leads', icon: Layers },
+        { href: '/sic/sessions', label: 'Sessions', icon: CalendarDays },
+        { href: '/sic/check-in', label: 'Check-In', icon: QrCode },
+        { href: '/sic/reports', label: 'Analytics', icon: BarChart3 },
+      ]
+    : [
+        { href: '/login', label: 'Sign In', icon: LogIn },
+        { href: '/sic/check-in', label: 'Quick Check-In', icon: QrCode },
+      ];
+
+  const brandHref = user ? '/dashboard' : '/login';
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur-md shadow-xs">
@@ -88,7 +94,7 @@ export function SicNavbar() {
             SIC
           </div>
           <div>
-            <Link href="/" className="text-sm sm:text-base font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
+            <Link href={brandHref} className="text-sm sm:text-base font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
               <span>SIC Operations</span>
               <span className="rounded-full bg-emerald-100 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold text-emerald-800">
                 Unified

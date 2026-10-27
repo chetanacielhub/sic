@@ -242,7 +242,7 @@ function CheckInContent() {
         )}
 
         <div className="mt-5 sm:mt-6 pt-4 border-t border-slate-100 text-center">
-          <Link href="/" className="text-xs font-semibold text-slate-500 hover:text-slate-900 inline-block py-2">
+          <Link href="/dashboard" className="text-xs font-semibold text-slate-500 hover:text-slate-900 inline-block py-2">
             Return to Operations Dashboard
           </Link>
         </div>
