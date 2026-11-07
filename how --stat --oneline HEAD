@@ -1,0 +1,10 @@
+* [33m002927e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m feat: implement academic structure and member registration API routes and UI components
+* [33mdd7056b[m[33m ([m[1;31mupstream/main[m[33m, [m[1;31mupstream/HEAD[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m feat: add navigation bar, middleware, root page, and check-in view for SIC operations
+* [33m549eb76[m feat: implement authentication callback handler and role-aware dashboard page
+* [33mb283547[m feat: add initial app structure, UI components, and UI-UX-Pro-Max skill integration
+* [33mbbc4b51[m feat: implement member registration and academic structure with Supabase integration
+* [33ma904af0[m fix: resolve unexpected HTML response on API routes and provision Supabase auth users
+* [33md89fb17[m feat(auth): implement production Login system, Next.js auth middleware, and project-based RBAC
+* [33md1b4fb9[m feat(sic): complete implementation of SIC Unified Attendance and Operations System
+* [33mcaae8e1[m[33m ([m[1;32mbackup-before-sync[m[33m)[m Update SIC dashboard
+* [33md7bbbfa[m first commit
