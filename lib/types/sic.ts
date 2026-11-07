@@ -73,7 +73,8 @@ export interface Member {
   designation: string;
   org_role: OrgRole;
   status: MemberStatus;
-  joining_date: string;
+  joining_date?: string;
+  joined_at?: string;
   created_at: string;
   updated_at: string;
   college_id?: string | null;
@@ -169,6 +170,9 @@ export interface Group {
   created_by?: string | null;
   created_at: string;
   updated_at: string;
+  group_leads?: GroupLead[];
+  group_memberships?: GroupMembership[];
+  member_count?: number;
 }
 
 export type LeadType = 'PRIMARY_LEAD' | 'CO_LEAD';

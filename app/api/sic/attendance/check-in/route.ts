@@ -10,7 +10,7 @@ import { z } from 'zod';
 
 const CheckInSchema = z.object({
   challenge: z.string().min(10),
-  member_id: z.string().uuid(),
+  member_id: z.string().min(1),
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
 });

@@ -34,6 +34,7 @@ import {
   Course, 
   AcademicYear, 
   Division, 
+  Group,
   MemberRegistration, 
   Member, 
   RegistrationStatus 
@@ -50,6 +51,7 @@ interface Props {
   initialCourses: Course[];
   initialYears: AcademicYear[];
   initialDivisions: Division[];
+  initialGroups?: Group[];
   initialRegistrations: MemberRegistration[];
 }
 
@@ -60,6 +62,7 @@ export function AssociateAdminConsole({
   initialCourses,
   initialYears,
   initialDivisions,
+  initialGroups = [],
   initialRegistrations,
 }: Props) {
   // Navigation Tabs
@@ -70,6 +73,7 @@ export function AssociateAdminConsole({
   const [courses, setCourses] = useState<Course[]>(initialCourses);
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>(initialYears);
   const [divisions, setDivisions] = useState<Division[]>(initialDivisions);
+  const [groups, setGroups] = useState<Group[]>(initialGroups);
 
   // Selected filters for Academic Hierarchy tree
   const [selectedCollegeId, setSelectedCollegeId] = useState<string>(initialColleges[0]?.id || '');
@@ -105,6 +109,11 @@ export function AssociateAdminConsole({
   const [showAddDivisionModal, setShowAddDivisionModal] = useState(false);
   const [newDivisionName, setNewDivisionName] = useState('Division A');
   const [batchDivisionCount, setBatchDivisionCount] = useState(3);
+
+  const [showAddGroupModal, setShowAddGroupModal] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupCode, setNewGroupCode] = useState('');
+  const [newGroupDesc, setNewGroupDesc] = useState('');
 
   // --------------------------------------------------------------------------
   // Review Actions: Approve, Reject, Request Correction
@@ -210,6 +219,15 @@ export function AssociateAdminConsole({
       const json = await res.json();
       if (json.success && json.data) {
         setCourses(prev => [...prev, json.data]);
+        setSelectedCourseId(json.data.id);
+        // Fetch generated academic years for the new course
+        const yrsRes = await fetch(`/api/sic/academic/years?course_id=${json.data.id}`);
+        if (yrsRes.ok) {
+          const yrsJson = await yrsRes.json();
+          if (yrsJson.data) {
+            setAcademicYears(prev => [...prev, ...yrsJson.data]);
+          }
+        }
         setShowAddCourseModal(false);
         setNewCourseName('');
         setNewCourseCode('');
@@ -256,6 +274,46 @@ export function AssociateAdminConsole({
       }
     } catch {
       alert('Failed to delete division');
+    }
+  };
+
+  const handleCreateGroup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/sic/groups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newGroupName,
+          code: newGroupCode,
+          description: newGroupDesc,
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setGroups(prev => [...prev, json.data]);
+        setShowAddGroupModal(false);
+        setNewGroupName('');
+        setNewGroupCode('');
+        setNewGroupDesc('');
+      } else {
+        alert(json.error || 'Failed to create SIC Group');
+      }
+    } catch {
+      alert('Error creating SIC Group');
+    }
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    if (!confirm('Are you sure you want to delete this SIC Group?')) return;
+    try {
+      const res = await fetch(`/api/sic/groups?id=${groupId}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.success) {
+        setGroups(prev => prev.filter(g => g.id !== groupId));
+      }
+    } catch {
+      alert('Failed to delete group');
     }
   };
 
@@ -845,6 +903,62 @@ export function AssociateAdminConsole({
               </div>
             )}
           </div>
+
+          {/* Full-Width Section: SIC Groups & Innovation Wings */}
+          <div className="lg:col-span-3 bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Users className="h-4 w-4 text-emerald-700" /> SIC Groups &amp; Innovation Wings ({groups.length})
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Groups created here appear on the student Registration form under &quot;Member Of&quot; and &quot;Leader Of&quot;.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddGroupModal(true)}
+                className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-colors inline-flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add SIC Group
+              </button>
+            </div>
+
+            {groups.length === 0 ? (
+              <div className="p-8 text-center rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400">
+                No SIC Groups created yet. Click &quot;+ Add SIC Group&quot; to create groups for students to join during registration.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {groups.map(group => (
+                  <div
+                    key={group.id}
+                    className="p-4 rounded-2xl border border-slate-200 bg-slate-50/60 flex items-start justify-between gap-2 text-xs"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900">{group.name}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono text-slate-600">
+                          {group.code}
+                        </span>
+                      </div>
+                      {group.description && (
+                        <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{group.description}</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteGroup(group.id)}
+                      className="text-slate-400 hover:text-rose-600 transition-colors p-1 shrink-0"
+                      title="Delete SIC Group"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1141,6 +1255,64 @@ export function AssociateAdminConsole({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MODAL: ADD SIC GROUP                                                  */}
+      {/* ===================================================================== */}
+      {showAddGroupModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <form onSubmit={handleCreateGroup} className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto p-5 sm:p-6 space-y-4">
+            <h3 className="text-sm font-bold text-slate-900">Create New SIC Group / Wing</h3>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Group Name</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. AI & Robotics Innovation Lab"
+                value={newGroupName}
+                onChange={e => setNewGroupName(e.target.value)}
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-600"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Group Code</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. SIC-AI"
+                value={newGroupCode}
+                onChange={e => setNewGroupCode(e.target.value)}
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-600 uppercase font-mono"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-700">Description (Optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. Applied machine learning and automation projects"
+                value={newGroupDesc}
+                onChange={e => setNewGroupDesc(e.target.value)}
+                className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-600"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowAddGroupModal(false)}
+                className="px-4 py-2.5 min-h-[44px] bg-slate-100 rounded-xl text-xs font-bold text-slate-700 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2.5 min-h-[44px] bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
+              >
+                Save Group
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

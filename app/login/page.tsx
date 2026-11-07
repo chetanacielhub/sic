@@ -48,15 +48,10 @@ function GoogleIcon({ className = 'h-4 w-4' }: { className?: string }) {
 }
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirectTo') || '/dashboard';
   const urlError = searchParams.get('error');
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,7 +74,7 @@ function LoginForm() {
 
       const redirectUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
 
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
@@ -110,45 +105,6 @@ function LoginForm() {
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim() || !password) {
-      setError('Please provide both your institutional email and password.');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-
-      if (authError) {
-        setError(authError.message || 'Invalid credentials. Please verify your email and password.');
-        return;
-      }
-
-      if (data.user) {
-        router.push(redirectTo);
-        router.refresh();
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'An unexpected error occurred during sign-in.';
-      setError(msg);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Demo account quick filler for testing convenience
-  const fillDemoAccount = (demoEmail: string) => {
-    setEmail(demoEmail);
-    setPassword('DemoPassword2027!');
-  };
-
   return (
     <div className="min-h-[80vh] flex flex-col justify-center items-center py-6 sm:py-8 px-3 sm:px-4">
       <div className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl p-5 sm:p-8 space-y-5 sm:space-y-6">
@@ -176,7 +132,7 @@ function LoginForm() {
           <button
             type="button"
             onClick={handleGoogleLogin}
-            disabled={isLoading || isGoogleLoading}
+            disabled={isGoogleLoading}
             className="w-full min-h-[48px] py-3.5 px-4 bg-white hover:bg-slate-50 border border-slate-300 hover:border-slate-400 text-slate-800 rounded-xl text-xs font-bold transition-all shadow-2xs hover:shadow-xs disabled:opacity-60 flex items-center justify-center gap-3 cursor-pointer active:scale-[0.99] touch-manipulation"
           >
             {isGoogleLoading ? (
@@ -191,119 +147,6 @@ function LoginForm() {
               </>
             )}
           </button>
-
-          {/* Divider */}
-          <div className="relative flex items-center justify-center">
-            <div className="border-t border-slate-200 w-full" />
-            <span className="bg-white px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
-              or institutional email
-            </span>
-            <div className="border-t border-slate-200 w-full" />
-          </div>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <Mail className="h-3.5 w-3.5 text-slate-400" /> Institutional Email
-            </label>
-            <input
-              type="email"
-              required
-              placeholder="e.g. director@sic.internal"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full text-xs p-3 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Lock className="h-3.5 w-3.5 text-slate-400" /> Password
-              </label>
-              <Link
-                href="/forgot-password"
-                className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
-              >
-                Forgot Password?
-              </Link>
-            </div>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                placeholder="••••••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full text-xs p-3 pr-10 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-600 font-medium font-mono"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 p-1"
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading || isGoogleLoading}
-            className="w-full min-h-[48px] py-3 px-4 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
-          >
-            {isLoading ? (
-              <span>Authenticating Session...</span>
-            ) : (
-              <>
-                Sign In to Dashboard <ArrowRight className="h-4 w-4" />
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* Quick Identity Selector (Evaluation & Testing Helper) */}
-        <div className="pt-4 border-t border-slate-100">
-          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-            <Users className="h-3 w-3" /> Quick Test Identities:
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
-            <button
-              type="button"
-              onClick={() => fillDemoAccount('director@sic.internal')}
-              className="p-2.5 min-h-[44px] text-left bg-slate-50 hover:bg-slate-100 active:bg-slate-200 rounded-xl border border-slate-200/60 cursor-pointer touch-manipulation"
-            >
-              <div className="font-bold text-slate-800">Super Admin</div>
-              <div className="text-slate-400 truncate">director@sic.internal</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemoAccount('aarav.patel@sic.internal')}
-              className="p-2 text-left bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-100"
-            >
-              <div className="font-bold text-slate-800">Project Admin</div>
-              <div className="text-slate-400 truncate">aarav.patel@...</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemoAccount('bhavna.rao@sic.internal')}
-              className="p-2 text-left bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-100"
-            >
-              <div className="font-bold text-slate-800">Group Lead</div>
-              <div className="text-slate-400 truncate">bhavna.rao@...</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => fillDemoAccount('divya.nair@sic.internal')}
-              className="p-2 text-left bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-100"
-            >
-              <div className="font-bold text-slate-800">Member</div>
-              <div className="text-slate-400 truncate">divya.nair@...</div>
-            </button>
-          </div>
         </div>
 
         {/* Footer */}

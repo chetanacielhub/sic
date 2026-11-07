@@ -8,9 +8,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { z } from 'zod';
 
 const AssignLeadSchema = z.object({
-  member_id: z.string().uuid(),
+  member_id: z.string().min(1),
   lead_type: z.enum(['PRIMARY_LEAD', 'CO_LEAD']).default('PRIMARY_LEAD'),
-  assigned_by: z.string().uuid().optional().nullable(),
+  assigned_by: z.string().min(1).optional().nullable(),
   is_active: z.boolean().default(true),
 });
 

@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseOrigin}${defaultErrorRoute}?error=${encodeURIComponent(errorMsg)}`);
     }
 
-    const member = await getCurrentMember();
+    const member = await getCurrentMember(user);
 
     // 1. Check if user attempted Associate Admin Login flow
     if (roleTarget === 'associate_admin' || safeNext.startsWith('/associate-admin')) {
@@ -65,11 +65,18 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const scope = await getAssociateAdminScope(member.id);
-      if (!scope.isAuthorized) {
-        return NextResponse.redirect(
-          `${baseOrigin}/associate-admin-login?error=UnauthorizedAdmin`
-        );
+      const isDirectSuper =
+        member.org_role === 'SUPER_ADMIN' ||
+        member.org_role === 'SIC_DIRECTOR' ||
+        member.org_role === 'SIC_ADMIN';
+
+      if (!isDirectSuper) {
+        const scope = await getAssociateAdminScope(member.id);
+        if (!scope.isAuthorized) {
+          return NextResponse.redirect(
+            `${baseOrigin}/associate-admin-login?error=UnauthorizedAdmin`
+          );
+        }
       }
 
       return NextResponse.redirect(`${baseOrigin}/associate-admin/dashboard`);

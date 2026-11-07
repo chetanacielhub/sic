@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { writeFile, mkdir } from 'fs/promises';
+import path from 'path';
 import { getSessionUser, getCurrentMember } from '@/lib/auth/session';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const BUCKET_NAME = 'member-avatars';
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,28 +43,50 @@ export async function POST(request: NextRequest) {
     const fileName = `${user.id}-${Date.now()}.${fileExt}`;
     const filePath = `avatars/${fileName}`;
 
-    // Convert file to ArrayBuffer
+    // Convert file to Buffer
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    // Upload to Supabase Storage
-    const { error: uploadError } = await admin.storage
-      .from('member-avatars')
+    let publicUrl = '';
+
+    // 1. Attempt upload to Supabase Storage
+    let { error: uploadError } = await admin.storage
+      .from(BUCKET_NAME)
       .upload(filePath, buffer, {
         contentType: file.type,
         upsert: true,
       });
 
-    if (uploadError) {
-      return NextResponse.json({
-        success: false,
-        error: `Storage upload failed: ${uploadError.message}`,
-      }, { status: 500 });
+    // 2. If bucket does not exist, attempt to create it and retry
+    if (uploadError && uploadError.message?.toLowerCase().includes('bucket not found')) {
+      await admin.storage.createBucket(BUCKET_NAME, {
+        public: true,
+        fileSizeLimit: MAX_FILE_SIZE,
+        allowedMimeTypes: ALLOWED_MIME_TYPES,
+      });
+
+      const retry = await admin.storage
+        .from(BUCKET_NAME)
+        .upload(filePath, buffer, {
+          contentType: file.type,
+          upsert: true,
+        });
+      uploadError = retry.error;
     }
 
-    // Get public URL
-    const { data: { publicUrl } } = admin.storage
-      .from('member-avatars')
-      .getPublicUrl(filePath);
+    if (!uploadError) {
+      const { data } = admin.storage.from(BUCKET_NAME).getPublicUrl(filePath);
+      publicUrl = data.publicUrl;
+    } else {
+      // 3. Fallback: store locally in public/uploads/avatars or as data URI if bucket isn't provisioned yet
+      try {
+        const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'avatars');
+        await mkdir(uploadsDir, { recursive: true });
+        await writeFile(path.join(uploadsDir, fileName), buffer);
+        publicUrl = `/uploads/avatars/${fileName}`;
+      } catch {
+        publicUrl = `data:${file.type};base64,${buffer.toString('base64')}`;
+      }
+    }
 
     // Update member record if member exists
     const member = await getCurrentMember();

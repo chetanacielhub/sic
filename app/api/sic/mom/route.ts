@@ -8,21 +8,21 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { z } from 'zod';
 
 const ActionItemInputSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().min(1).optional(),
   title: z.string().min(2).max(255),
   description: z.string().optional().nullable(),
-  assigned_member_id: z.string().uuid(),
+  assigned_member_id: z.string().min(1),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).default('MEDIUM'),
   due_date: z.string(),
   status: z.enum(['TODO', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED', 'CANCELLED']).default('TODO'),
 });
 
 const UpsertMoMSchema = z.object({
-  session_id: z.string().uuid(),
+  session_id: z.string().min(1),
   agenda: z.string().optional().nullable(),
   discussion_notes: z.string().optional().nullable(),
   decisions: z.string().optional().nullable(),
-  prepared_by: z.string().uuid(),
+  prepared_by: z.string().min(1),
   status: z.enum(['DRAFT', 'SUBMITTED', 'APPROVED']).default('DRAFT'),
   action_items: z.array(ActionItemInputSchema).optional(),
 });

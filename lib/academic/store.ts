@@ -9,115 +9,28 @@ import {
   Course, 
   AcademicYear, 
   Division, 
+  Group,
+  GroupLead,
+  GroupMembership,
+  LeadType,
+  Member,
+  OrgRole,
+  MemberStatus,
   MemberRegistration, 
   RegistrationGroup
 } from '@/lib/types/sic';
 
+export interface StoredMember extends Member {
+  activeGroups?: Array<{ id?: string; code: string; name: string }>;
+}
 
 // ----------------------------------------------------------------------------
-// Default Institutional Academic Structure
+// Institutional Academic Structure Store (No Dummy Seed Data)
 // ----------------------------------------------------------------------------
-export const SEED_COLLEGES: College[] = [
-  {
-    id: 'e1111111-1111-1111-1111-111111111111',
-    name: "Chetana's Institute of Management & Research",
-    code: 'CIMR',
-    description: 'Postgraduate Business, Innovation & Management Studies',
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'e2222222-2222-2222-2222-222222222222',
-    name: "Chetana's Hazarimal Somani College of Commerce & Economics",
-    code: 'CHSC',
-    description: 'Undergraduate & Professional Programs in Commerce, IT & Management',
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
-
-export const SEED_COURSES: Course[] = [
-  {
-    id: 'f1111111-1111-1111-1111-111111111111',
-    college_id: 'e1111111-1111-1111-1111-111111111111',
-    name: 'Post Graduate Diploma in Management (PGDM)',
-    code: 'PGDM',
-    duration_years: 2,
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'f2222222-2222-2222-2222-222222222222',
-    college_id: 'e2222222-2222-2222-2222-222222222222',
-    name: 'Bachelor of Commerce (B.Com)',
-    code: 'BCOM',
-    duration_years: 3,
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'f3333333-3333-3333-3333-333333333333',
-    college_id: 'e2222222-2222-2222-2222-222222222222',
-    name: 'Bachelor of Management Studies (BMS)',
-    code: 'BMS',
-    duration_years: 3,
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: 'f4444444-4444-4444-4444-444444444444',
-    college_id: 'e2222222-2222-2222-2222-222222222222',
-    name: 'B.Sc Information Technology (B.Sc IT)',
-    code: 'BSCIT',
-    duration_years: 3,
-    is_active: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-];
-
-export const SEED_YEARS: AcademicYear[] = [
-  // PGDM
-  { id: 'c1111111-0001-1111-1111-111111111111', course_id: 'f1111111-1111-1111-1111-111111111111', year_name: 'First Year', year_number: 1, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'c1111111-0002-1111-1111-111111111111', course_id: 'f1111111-1111-1111-1111-111111111111', year_name: 'Second Year', year_number: 2, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  // B.Com
-  { id: 'c2222222-0001-1111-1111-111111111111', course_id: 'f2222222-2222-2222-2222-222222222222', year_name: 'First Year', year_number: 1, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'c2222222-0002-1111-1111-111111111111', course_id: 'f2222222-2222-2222-2222-222222222222', year_name: 'Second Year', year_number: 2, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'c2222222-0003-1111-1111-111111111111', course_id: 'f2222222-2222-2222-2222-222222222222', year_name: 'Third Year', year_number: 3, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  // BMS
-  { id: 'c3333333-0001-1111-1111-111111111111', course_id: 'f3333333-3333-3333-3333-333333333333', year_name: 'First Year', year_number: 1, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'c3333333-0002-1111-1111-111111111111', course_id: 'f3333333-3333-3333-3333-333333333333', year_name: 'Second Year', year_number: 2, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'c3333333-0003-1111-1111-111111111111', course_id: 'f3333333-3333-3333-3333-333333333333', year_name: 'Third Year', year_number: 3, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  // B.Sc IT
-  { id: 'c4444444-0001-1111-1111-111111111111', course_id: 'f4444444-4444-4444-4444-444444444444', year_name: 'First Year', year_number: 1, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'c4444444-0002-1111-1111-111111111111', course_id: 'f4444444-4444-4444-4444-444444444444', year_name: 'Second Year', year_number: 2, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'c4444444-0003-1111-1111-111111111111', course_id: 'f4444444-4444-4444-4444-444444444444', year_name: 'Third Year', year_number: 3, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-];
-
-export const SEED_DIVISIONS: Division[] = [
-  // PGDM Year 1: A, B, C
-  { id: 'd1111111-0001-1111-1111-111111111111', academic_year_id: 'c1111111-0001-1111-1111-111111111111', course_id: 'f1111111-1111-1111-1111-111111111111', college_id: 'e1111111-1111-1111-1111-111111111111', name: 'Division A', is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'd1111111-0002-1111-1111-111111111111', academic_year_id: 'c1111111-0001-1111-1111-111111111111', course_id: 'f1111111-1111-1111-1111-111111111111', college_id: 'e1111111-1111-1111-1111-111111111111', name: 'Division B', is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'd1111111-0003-1111-1111-111111111111', academic_year_id: 'c1111111-0001-1111-1111-111111111111', course_id: 'f1111111-1111-1111-1111-111111111111', college_id: 'e1111111-1111-1111-1111-111111111111', name: 'Division C', is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  // PGDM Year 2: A, B
-  { id: 'd1111111-0004-1111-1111-111111111111', academic_year_id: 'c1111111-0002-1111-1111-111111111111', course_id: 'f1111111-1111-1111-1111-111111111111', college_id: 'e1111111-1111-1111-1111-111111111111', name: 'Division A', is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'd1111111-0005-1111-1111-111111111111', academic_year_id: 'c1111111-0002-1111-1111-111111111111', course_id: 'f1111111-1111-1111-1111-111111111111', college_id: 'e1111111-1111-1111-1111-111111111111', name: 'Division B', is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  // B.Com Year 1: A, B, C, D
-  { id: 'd2222222-0001-1111-1111-111111111111', academic_year_id: 'c2222222-0001-1111-1111-111111111111', course_id: 'f2222222-2222-2222-2222-222222222222', college_id: 'e2222222-2222-2222-2222-222222222222', name: 'Division A', is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'd2222222-0002-1111-1111-111111111111', academic_year_id: 'c2222222-0001-1111-1111-111111111111', course_id: 'f2222222-2222-2222-2222-222222222222', college_id: 'e2222222-2222-2222-2222-222222222222', name: 'Division B', is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'd2222222-0003-1111-1111-111111111111', academic_year_id: 'c2222222-0001-1111-1111-111111111111', course_id: 'f2222222-2222-2222-2222-222222222222', college_id: 'e2222222-2222-2222-2222-222222222222', name: 'Division C', is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'd2222222-0004-1111-1111-111111111111', academic_year_id: 'c2222222-0001-1111-1111-111111111111', course_id: 'f2222222-2222-2222-2222-222222222222', college_id: 'e2222222-2222-2222-2222-222222222222', name: 'Division D', is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  // B.Sc IT Year 1: A
-  { id: 'd4444444-0001-1111-1111-111111111111', academic_year_id: 'c4444444-0001-1111-1111-111111111111', course_id: 'f4444444-4444-4444-4444-444444444444', college_id: 'e2222222-2222-2222-2222-222222222222', name: 'Division A', is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  // BMS Year 1: A, B
-  { id: 'd3333333-0001-1111-1111-111111111111', academic_year_id: 'c3333333-0001-1111-1111-111111111111', course_id: 'f3333333-3333-3333-3333-333333333333', college_id: 'e2222222-2222-2222-2222-222222222222', name: 'Division A', is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  { id: 'd3333333-0002-1111-1111-111111111111', academic_year_id: 'c3333333-0001-1111-1111-111111111111', course_id: 'f3333333-3333-3333-3333-333333333333', college_id: 'e2222222-2222-2222-2222-222222222222', name: 'Division B', is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-];
+export const SEED_COLLEGES: College[] = [];
+export const SEED_COURSES: Course[] = [];
+export const SEED_YEARS: AcademicYear[] = [];
+export const SEED_DIVISIONS: Division[] = [];
 
 // Persistent state cache across hot-reloads
 declare global {
@@ -125,14 +38,689 @@ declare global {
   var __sic_courses: Course[] | undefined;
   var __sic_academic_years: AcademicYear[] | undefined;
   var __sic_divisions: Division[] | undefined;
+  var __sic_groups: Group[] | undefined;
+  var __sic_members: StoredMember[] | undefined;
   var __sic_registrations: MemberRegistration[] | undefined;
 }
 
-if (!globalThis.__sic_colleges) globalThis.__sic_colleges = [...SEED_COLLEGES];
-if (!globalThis.__sic_courses) globalThis.__sic_courses = [...SEED_COURSES];
-if (!globalThis.__sic_academic_years) globalThis.__sic_academic_years = [...SEED_YEARS];
-if (!globalThis.__sic_divisions) globalThis.__sic_divisions = [...SEED_DIVISIONS];
+if (!globalThis.__sic_colleges) globalThis.__sic_colleges = [];
+if (!globalThis.__sic_courses) globalThis.__sic_courses = [];
+if (!globalThis.__sic_academic_years) globalThis.__sic_academic_years = [];
+if (!globalThis.__sic_divisions) globalThis.__sic_divisions = [];
+if (!globalThis.__sic_groups) globalThis.__sic_groups = [];
+if (!globalThis.__sic_members) globalThis.__sic_members = [];
 if (!globalThis.__sic_registrations) globalThis.__sic_registrations = [];
+
+// ----------------------------------------------------------------------------
+// Managed Members (Invite, Ban/Unban, Remove)
+// ----------------------------------------------------------------------------
+export function getStoredMembers(): StoredMember[] {
+  return globalThis.__sic_members || [];
+}
+
+export async function inviteOrCreateMember(params: {
+  full_name: string;
+  email: string;
+  org_role?: OrgRole;
+  department?: string;
+  designation?: string;
+  roll_number?: string | null;
+  group_ids?: string[];
+}): Promise<StoredMember> {
+  const now = new Date().toISOString();
+  const cleanEmail = params.email.trim().toLowerCase();
+  const randomCode = Math.floor(1000 + Math.random() * 9000);
+  const memberCode = `SIC-${randomCode}`;
+
+  const allGroups = await getGroups();
+  const assignedGroups = (params.group_ids || [])
+    .map(gid => allGroups.find(g => g.id === gid))
+    .filter(Boolean)
+    .map(g => ({ id: g!.id, code: g!.code, name: g!.name }));
+
+  const newMember: StoredMember = {
+    id: crypto.randomUUID(),
+    auth_user_id: null,
+    member_code: memberCode,
+    full_name: params.full_name.trim(),
+    email: cleanEmail,
+    phone: null,
+    department: params.department?.trim() || 'Innovation & Operations',
+    designation: params.designation?.trim() || 'SIC Member',
+    org_role: params.org_role || 'MEMBER',
+    status: 'ACTIVE',
+    avatar_url: null,
+    roll_number: params.roll_number?.trim() || null,
+    joined_at: now.split('T')[0],
+    created_at: now,
+    updated_at: now,
+    activeGroups: assignedGroups,
+  };
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('members')
+      .upsert(
+        {
+          id: newMember.id,
+          member_code: newMember.member_code,
+          full_name: newMember.full_name,
+          email: newMember.email,
+          department: newMember.department,
+          designation: newMember.designation,
+          org_role: newMember.org_role,
+          status: 'ACTIVE',
+          roll_number: newMember.roll_number,
+        },
+        { onConflict: 'email' }
+      )
+      .select()
+      .maybeSingle();
+
+    if (!error && data) {
+      newMember.id = data.id;
+      for (const gid of params.group_ids || []) {
+        await admin.from('group_memberships').upsert(
+          {
+            group_id: gid,
+            member_id: data.id,
+            status: 'ACTIVE',
+          },
+          { onConflict: 'group_id,member_id' }
+        );
+      }
+    }
+  } catch {}
+
+  if (!globalThis.__sic_members) globalThis.__sic_members = [];
+  const existingIdx = globalThis.__sic_members.findIndex(
+    m => m.email.toLowerCase() === cleanEmail
+  );
+  if (existingIdx >= 0) {
+    globalThis.__sic_members[existingIdx] = {
+      ...globalThis.__sic_members[existingIdx],
+      ...newMember,
+    };
+  } else {
+    globalThis.__sic_members.unshift(newMember);
+  }
+
+  return newMember;
+}
+
+export async function setMemberBanStatus(params: {
+  memberId: string;
+  email?: string;
+  status: MemberStatus; // 'ACTIVE' (unban) or 'SUSPENDED' (ban)
+  org_role?: OrgRole;
+}): Promise<boolean> {
+  const now = new Date().toISOString();
+  const cleanEmail = params.email?.trim().toLowerCase();
+
+  try {
+    const admin = createAdminClient();
+    const updatePayload: Record<string, unknown> = {
+      status: params.status,
+      updated_at: now,
+    };
+    if (params.org_role) updatePayload.org_role = params.org_role;
+
+    await admin.from('members').update(updatePayload).eq('id', params.memberId);
+    if (cleanEmail) {
+      await admin.from('members').update(updatePayload).ilike('email', cleanEmail);
+    }
+  } catch {}
+
+  // Update in-memory members
+  if (globalThis.__sic_members) {
+    for (const m of globalThis.__sic_members) {
+      if (m.id === params.memberId || (cleanEmail && m.email.toLowerCase() === cleanEmail)) {
+        m.status = params.status;
+        if (params.org_role) m.org_role = params.org_role;
+        m.updated_at = now;
+      }
+    }
+  }
+
+  // Also sync any matching registration status if unbanning/banning
+  if (globalThis.__sic_registrations) {
+    for (const r of globalThis.__sic_registrations) {
+      if (
+        r.member_id === params.memberId ||
+        r.id === params.memberId ||
+        (cleanEmail && r.email.toLowerCase() === cleanEmail)
+      ) {
+        r.status = params.status === 'SUSPENDED' ? 'SUSPENDED' : 'APPROVED';
+        r.updated_at = now;
+      }
+    }
+  }
+
+  return true;
+}
+
+export async function removeMemberById(memberId: string, email?: string): Promise<boolean> {
+  const cleanEmail = email?.trim().toLowerCase();
+
+  try {
+    const admin = createAdminClient();
+    await admin.from('members').delete().eq('id', memberId);
+    if (cleanEmail) {
+      await admin.from('members').delete().ilike('email', cleanEmail);
+    }
+  } catch {}
+
+  if (globalThis.__sic_members) {
+    globalThis.__sic_members = globalThis.__sic_members.filter(
+      m => m.id !== memberId && (!cleanEmail || m.email.toLowerCase() !== cleanEmail)
+    );
+  }
+
+  if (globalThis.__sic_registrations) {
+    globalThis.__sic_registrations = globalThis.__sic_registrations.filter(
+      r =>
+        r.id !== memberId &&
+        r.member_id !== memberId &&
+        (!cleanEmail || r.email.toLowerCase() !== cleanEmail)
+    );
+  }
+
+  return true;
+}
+
+// ----------------------------------------------------------------------------
+// SIC Groups Query, Multi-Leader Assignment & Roster Helpers
+// ----------------------------------------------------------------------------
+export async function resolveAllKnownMembers(): Promise<Member[]> {
+  const memberMap = new Map<string, Member>();
+
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from('members')
+      .select('id, auth_user_id, member_code, full_name, email, phone, avatar_url, department, designation, org_role, status, joining_date, roll_number, created_at, updated_at')
+      .order('full_name', { ascending: true });
+
+    for (const m of data || []) {
+      memberMap.set(m.id, m as Member);
+    }
+  } catch {}
+
+  for (const sm of globalThis.__sic_members || []) {
+    const existing = Array.from(memberMap.values()).find(
+      m => m.id === sm.id || m.email.toLowerCase() === sm.email.toLowerCase()
+    );
+    if (!existing) {
+      memberMap.set(sm.id, sm);
+    }
+  }
+
+  for (const reg of globalThis.__sic_registrations || []) {
+    if (reg.status === 'APPROVED') {
+      const id = reg.member_id || reg.id;
+      const existing = Array.from(memberMap.values()).find(
+        m => m.id === id || m.email.toLowerCase() === reg.email.toLowerCase()
+      );
+      if (!existing) {
+        const cleanCode = reg.auth_user_id.replace(/-/g, '').slice(0, 8).toUpperCase();
+        memberMap.set(id, {
+          id,
+          auth_user_id: reg.auth_user_id,
+          member_code: `SIC-${cleanCode}`,
+          full_name: reg.full_name,
+          email: reg.email,
+          department: reg.course?.name || 'Innovation & Operations',
+          designation: 'SIC Member',
+          org_role: 'MEMBER',
+          status: 'ACTIVE',
+          avatar_url: reg.avatar_url || null,
+          roll_number: reg.roll_number,
+          joining_date: reg.reviewed_at || reg.created_at,
+          created_at: reg.created_at,
+          updated_at: reg.updated_at,
+        });
+      }
+    }
+  }
+
+  return Array.from(memberMap.values());
+}
+
+function enrichGroupsWithRegistrationsAndMembers(groups: Group[], knownMembers: Member[]): Group[] {
+  const memberById = new Map<string, Member>();
+  const memberByEmail = new Map<string, Member>();
+  for (const m of knownMembers) {
+    memberById.set(m.id, m);
+    memberByEmail.set(m.email.toLowerCase(), m);
+  }
+
+  return groups.map(g => {
+    const leadsMap = new Map<string, GroupLead>();
+    const membershipsMap = new Map<string, GroupMembership>();
+
+    for (const l of g.group_leads || []) {
+      if (!l.is_active) continue;
+      const rawMem = Array.isArray(l.member) ? l.member[0] : l.member;
+      const mem = rawMem || memberById.get(l.member_id);
+      if (mem) {
+        const key = (mem.email || mem.id || l.member_id).toLowerCase();
+        leadsMap.set(key, {
+          ...l,
+          member_id: mem.id || l.member_id,
+          member: mem,
+        });
+      }
+    }
+
+    for (const gm of g.group_memberships || []) {
+      if (gm.status !== 'ACTIVE') continue;
+      const rawMem = Array.isArray(gm.member) ? gm.member[0] : gm.member;
+      const mem = rawMem || memberById.get(gm.member_id);
+      if (mem) {
+        const key = (mem.email || mem.id || gm.member_id).toLowerCase();
+        membershipsMap.set(key, {
+          ...gm,
+          member_id: mem.id || gm.member_id,
+          member: mem,
+        });
+      }
+    }
+
+    // Merge from invited/stored members activeGroups
+    for (const sm of globalThis.__sic_members || []) {
+      if (sm.status === 'SUSPENDED') continue;
+      const inGroup = (sm.activeGroups || []).some(
+        ag => ag.id === g.id || ag.code.toUpperCase() === g.code.toUpperCase()
+      );
+      if (inGroup) {
+        const key = sm.email.toLowerCase();
+        if (!membershipsMap.has(key)) {
+          membershipsMap.set(key, {
+            id: `${g.id}-mem-${sm.id}`,
+            group_id: g.id,
+            member_id: sm.id,
+            status: 'ACTIVE',
+            joined_at: sm.created_at,
+            member: sm,
+          });
+        }
+      }
+    }
+
+    // Merge from approved registrations
+    for (const reg of globalThis.__sic_registrations || []) {
+      if (reg.status !== 'APPROVED') continue;
+      const mem =
+        memberByEmail.get(reg.email.toLowerCase()) ||
+        memberById.get(reg.member_id || reg.id);
+      if (!mem) continue;
+      const key = mem.email.toLowerCase();
+
+      for (const rg of reg.requested_groups || []) {
+        const matchesGroup =
+          rg.group_id === g.id ||
+          (rg.group?.code && rg.group.code.toUpperCase() === g.code.toUpperCase());
+        if (!matchesGroup || rg.status !== 'APPROVED') continue;
+
+        if (rg.request_type === 'LEADER') {
+          if (!leadsMap.has(key)) {
+            leadsMap.set(key, {
+              id: `${g.id}-lead-${mem.id}`,
+              group_id: g.id,
+              member_id: mem.id,
+              lead_type: 'PRIMARY_LEAD',
+              assigned_at: reg.reviewed_at || reg.updated_at,
+              is_active: true,
+              member: mem,
+            });
+          }
+          // Leaders are also enrolled members of the group
+          if (!membershipsMap.has(key)) {
+            membershipsMap.set(key, {
+              id: `${g.id}-mem-${mem.id}`,
+              group_id: g.id,
+              member_id: mem.id,
+              status: 'ACTIVE',
+              joined_at: reg.reviewed_at || reg.updated_at,
+              member: mem,
+            });
+          }
+        } else if (rg.request_type === 'MEMBER') {
+          if (!membershipsMap.has(key)) {
+            membershipsMap.set(key, {
+              id: `${g.id}-mem-${mem.id}`,
+              group_id: g.id,
+              member_id: mem.id,
+              status: 'ACTIVE',
+              joined_at: reg.reviewed_at || reg.updated_at,
+              member: mem,
+            });
+          }
+        }
+      }
+    }
+
+    const finalLeads = Array.from(leadsMap.values());
+    const finalMemberships = Array.from(membershipsMap.values());
+
+    return {
+      ...g,
+      group_leads: finalLeads,
+      group_memberships: finalMemberships,
+      member_count: finalMemberships.length,
+    };
+  });
+}
+
+export async function getGroups(): Promise<Group[]> {
+  const knownMembers = await resolveAllKnownMembers();
+  const groupMap = new Map<string, Group>();
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('groups')
+      .select(`
+        *,
+        group_leads(
+          id,
+          member_id,
+          lead_type,
+          is_active,
+          assigned_at,
+          member:members(id, full_name, email, member_code, department, avatar_url)
+        ),
+        group_memberships(
+          id,
+          member_id,
+          status,
+          joined_at,
+          member:members(id, full_name, email, member_code, department, avatar_url)
+        )
+      `)
+      .eq('is_active', true)
+      .order('name', { ascending: true });
+
+    if (!error && data) {
+      for (const g of data) {
+        groupMap.set(g.id, g as Group);
+      }
+    }
+  } catch {}
+
+  for (const sg of globalThis.__sic_groups || []) {
+    if (!sg.is_active) continue;
+    const existing = groupMap.get(sg.id);
+    if (existing) {
+      // Merge in-memory leads/memberships if stored
+      groupMap.set(sg.id, {
+        ...existing,
+        ...sg,
+        group_leads: sg.group_leads?.length ? sg.group_leads : existing.group_leads,
+        group_memberships: sg.group_memberships?.length
+          ? sg.group_memberships
+          : existing.group_memberships,
+      });
+    } else {
+      groupMap.set(sg.id, sg);
+    }
+  }
+
+  const allGroups = Array.from(groupMap.values());
+  return enrichGroupsWithRegistrationsAndMembers(allGroups, knownMembers);
+}
+
+export async function addGroup(params: {
+  name: string;
+  code: string;
+  description?: string | null;
+  group_type?: 'PERMANENT' | 'TEMPORARY' | 'PROJECT' | 'EVENT' | 'WORKSHOP';
+  grace_period_mins?: number;
+  min_attendance_pct?: number;
+  leaders?: Array<{
+    member_id: string;
+    lead_type?: LeadType;
+  }>;
+  member_ids?: string[];
+}): Promise<Group> {
+  const now = new Date().toISOString();
+  const knownMembers = await resolveAllKnownMembers();
+  const memberById = new Map<string, Member>(knownMembers.map(m => [m.id, m]));
+
+  const groupId = crypto.randomUUID();
+  const cleanCode = params.code.trim().toUpperCase();
+  const cleanName = params.name.trim();
+
+  // Build initial group_leads (can be multiple)
+  const groupLeads: GroupLead[] = (params.leaders || []).map(l => {
+    const mem = memberById.get(l.member_id);
+    return {
+      id: crypto.randomUUID(),
+      group_id: groupId,
+      member_id: l.member_id,
+      lead_type: l.lead_type || 'PRIMARY_LEAD',
+      assigned_at: now,
+      is_active: true,
+      member: mem,
+    };
+  });
+
+  // Combine explicit member_ids + all leader member_ids so leaders are also members
+  const combinedMemberIds = Array.from(
+    new Set([
+      ...(params.member_ids || []),
+      ...(params.leaders || []).map(l => l.member_id),
+    ])
+  );
+
+  const groupMemberships: GroupMembership[] = combinedMemberIds.map(mid => {
+    const mem = memberById.get(mid);
+    return {
+      id: crypto.randomUUID(),
+      group_id: groupId,
+      member_id: mid,
+      status: 'ACTIVE',
+      joined_at: now,
+      member: mem,
+    };
+  });
+
+  const newGroup: Group = {
+    id: groupId,
+    name: cleanName,
+    code: cleanCode,
+    description: params.description?.trim() || null,
+    group_type: params.group_type || 'PERMANENT',
+    parent_group_id: null,
+    is_active: true,
+    capacity_limit: 0,
+    attendance_policy: {
+      grace_period_mins: params.grace_period_mins ?? 15,
+      min_attendance_pct: params.min_attendance_pct ?? 75,
+    },
+    created_by: null,
+    created_at: now,
+    updated_at: now,
+    group_leads: groupLeads,
+    group_memberships: groupMemberships,
+    member_count: groupMemberships.length,
+  };
+
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('groups')
+      .insert({
+        id: newGroup.id,
+        name: newGroup.name,
+        code: newGroup.code,
+        description: newGroup.description,
+        group_type: newGroup.group_type,
+        is_active: true,
+        capacity_limit: 0,
+        attendance_policy: newGroup.attendance_policy,
+      })
+      .select()
+      .single();
+
+    if (!error && data) {
+      newGroup.id = data.id;
+      for (const gl of groupLeads) {
+        await admin.from('group_leads').upsert(
+          {
+            group_id: data.id,
+            member_id: gl.member_id,
+            lead_type: gl.lead_type,
+            is_active: true,
+          },
+          { onConflict: 'group_id,member_id' }
+        );
+      }
+      for (const gm of groupMemberships) {
+        await admin.from('group_memberships').upsert(
+          {
+            group_id: data.id,
+            member_id: gm.member_id,
+            status: 'ACTIVE',
+          },
+          { onConflict: 'group_id,member_id' }
+        );
+      }
+    }
+  } catch {}
+
+  // Also sync to globalThis.__sic_members activeGroups
+  if (globalThis.__sic_members) {
+    for (const sm of globalThis.__sic_members) {
+      if (combinedMemberIds.includes(sm.id)) {
+        const current = sm.activeGroups || [];
+        if (!current.some(ag => ag.id === newGroup.id || ag.code === newGroup.code)) {
+          sm.activeGroups = [...current, { id: newGroup.id, code: newGroup.code, name: newGroup.name }];
+        }
+      }
+    }
+  }
+
+  if (!globalThis.__sic_groups) globalThis.__sic_groups = [];
+  globalThis.__sic_groups.push(newGroup);
+  return newGroup;
+}
+
+export async function updateGroupRoster(params: {
+  group_id: string;
+  name?: string;
+  description?: string | null;
+  leaders: Array<{
+    member_id: string;
+    lead_type: LeadType;
+  }>;
+  member_ids: string[];
+}): Promise<Group | null> {
+  const now = new Date().toISOString();
+  const knownMembers = await resolveAllKnownMembers();
+  const memberById = new Map<string, Member>(knownMembers.map(m => [m.id, m]));
+
+  const currentGroups = await getGroups();
+  const target = currentGroups.find(g => g.id === params.group_id);
+  if (!target) return null;
+
+  const updatedLeads: GroupLead[] = params.leaders.map(l => ({
+    id: crypto.randomUUID(),
+    group_id: params.group_id,
+    member_id: l.member_id,
+    lead_type: l.lead_type,
+    assigned_at: now,
+    is_active: true,
+    member: memberById.get(l.member_id),
+  }));
+
+  const combinedMemberIds = Array.from(
+    new Set([...params.member_ids, ...params.leaders.map(l => l.member_id)])
+  );
+
+  const updatedMemberships: GroupMembership[] = combinedMemberIds.map(mid => ({
+    id: crypto.randomUUID(),
+    group_id: params.group_id,
+    member_id: mid,
+    status: 'ACTIVE',
+    joined_at: now,
+    member: memberById.get(mid),
+  }));
+
+  const updatedGroup: Group = {
+    ...target,
+    name: params.name?.trim() || target.name,
+    description: params.description !== undefined ? params.description : target.description,
+    updated_at: now,
+    group_leads: updatedLeads,
+    group_memberships: updatedMemberships,
+    member_count: updatedMemberships.length,
+  };
+
+  try {
+    const admin = createAdminClient();
+    await admin
+      .from('groups')
+      .update({
+        name: updatedGroup.name,
+        description: updatedGroup.description,
+        updated_at: now,
+      })
+      .eq('id', params.group_id);
+
+    // Replace leads
+    await admin.from('group_leads').delete().eq('group_id', params.group_id);
+    for (const gl of updatedLeads) {
+      await admin.from('group_leads').insert({
+        group_id: params.group_id,
+        member_id: gl.member_id,
+        lead_type: gl.lead_type,
+        is_active: true,
+      });
+    }
+
+    // Replace memberships
+    await admin.from('group_memberships').delete().eq('group_id', params.group_id);
+    for (const gm of updatedMemberships) {
+      await admin.from('group_memberships').insert({
+        group_id: params.group_id,
+        member_id: gm.member_id,
+        status: 'ACTIVE',
+      });
+    }
+  } catch {}
+
+  if (!globalThis.__sic_groups) globalThis.__sic_groups = [];
+  const idx = globalThis.__sic_groups.findIndex(g => g.id === params.group_id);
+  if (idx >= 0) {
+    globalThis.__sic_groups[idx] = updatedGroup;
+  } else {
+    globalThis.__sic_groups.push(updatedGroup);
+  }
+
+  return updatedGroup;
+}
+
+export async function deleteGroup(groupId: string): Promise<boolean> {
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin.from('groups').delete().eq('id', groupId);
+    if (!error) {
+      if (globalThis.__sic_groups) {
+        globalThis.__sic_groups = globalThis.__sic_groups.filter(g => g.id !== groupId);
+      }
+      return true;
+    }
+  } catch {}
+
+  if (globalThis.__sic_groups) {
+    const prevLen = globalThis.__sic_groups.length;
+    globalThis.__sic_groups = globalThis.__sic_groups.filter(g => g.id !== groupId);
+    return globalThis.__sic_groups.length < prevLen;
+  }
+  return false;
+}
 
 // ----------------------------------------------------------------------------
 // Academic Query Helpers
@@ -141,9 +729,9 @@ export async function getColleges(): Promise<College[]> {
   try {
     const admin = createAdminClient();
     const { data, error } = await admin.from('colleges').select('*').order('name');
-    if (!error && data && data.length > 0) return data as College[];
+    if (!error && data) return data as College[];
   } catch {}
-  return globalThis.__sic_colleges || SEED_COLLEGES;
+  return globalThis.__sic_colleges || [];
 }
 
 export async function addCollege(name: string, code: string, description?: string): Promise<College> {
@@ -189,13 +777,15 @@ export async function getCourses(collegeId?: string): Promise<Course[]> {
     let q = admin.from('courses').select('*, college:colleges(*)').order('name');
     if (collegeId) q = q.eq('college_id', collegeId);
     const { data, error } = await q;
-    if (!error && data && data.length > 0) return data as Course[];
+    if (!error && data) return data as Course[];
   } catch {}
 
-  let list = globalThis.__sic_courses || SEED_COURSES;
+  let list = globalThis.__sic_courses || [];
   if (collegeId) list = list.filter(c => c.college_id === collegeId);
   return list;
 }
+
+const ORDINAL_YEAR_NAMES = ['First Year', 'Second Year', 'Third Year', 'Fourth Year', 'Fifth Year', 'Sixth Year'];
 
 export async function addCourse(collegeId: string, name: string, code: string, durationYears: number = 3): Promise<Course> {
   const newCourse: Course = {
@@ -209,14 +799,27 @@ export async function addCourse(collegeId: string, name: string, code: string, d
     updated_at: new Date().toISOString(),
   };
 
+  let createdCourse: Course = newCourse;
+
   try {
     const admin = createAdminClient();
     const { data, error } = await admin.from('courses').insert(newCourse).select().single();
-    if (!error && data) return data as Course;
-  } catch {}
+    if (!error && data) {
+      createdCourse = data as Course;
+    } else {
+      globalThis.__sic_courses?.push(newCourse);
+    }
+  } catch {
+    globalThis.__sic_courses?.push(newCourse);
+  }
 
-  globalThis.__sic_courses?.push(newCourse);
-  return newCourse;
+  // Auto-generate Academic Years (1..durationYears) for the newly created course
+  for (let yr = 1; yr <= durationYears; yr++) {
+    const yearLabel = ORDINAL_YEAR_NAMES[yr - 1] || `Year ${yr}`;
+    await addAcademicYear(createdCourse.id, yearLabel, yr);
+  }
+
+  return createdCourse;
 }
 
 export async function getAcademicYears(courseId?: string): Promise<AcademicYear[]> {
@@ -225,10 +828,10 @@ export async function getAcademicYears(courseId?: string): Promise<AcademicYear[
     let q = admin.from('academic_years').select('*, course:courses(*)').order('year_number');
     if (courseId) q = q.eq('course_id', courseId);
     const { data, error } = await q;
-    if (!error && data && data.length > 0) return data as AcademicYear[];
+    if (!error && data) return data as AcademicYear[];
   } catch {}
 
-  let list = globalThis.__sic_academic_years || SEED_YEARS;
+  let list = globalThis.__sic_academic_years || [];
   if (courseId) list = list.filter(y => y.course_id === courseId);
   return list;
 }
@@ -262,10 +865,10 @@ export async function getDivisions(params?: { academicYearId?: string; courseId?
     if (params?.courseId) q = q.eq('course_id', params.courseId);
     if (params?.collegeId) q = q.eq('college_id', params.collegeId);
     const { data, error } = await q;
-    if (!error && data && data.length > 0) return data as Division[];
+    if (!error && data) return data as Division[];
   } catch {}
 
-  let list = globalThis.__sic_divisions || SEED_DIVISIONS;
+  let list = globalThis.__sic_divisions || [];
   if (params?.academicYearId) list = list.filter(d => d.academic_year_id === params.academicYearId);
   if (params?.courseId) list = list.filter(d => d.course_id === params.courseId);
   if (params?.collegeId) list = list.filter(d => d.college_id === params.collegeId);
@@ -365,6 +968,7 @@ export async function saveRegistration(payload: {
   const courses = await getCourses();
   const years = await getAcademicYears();
   const divisions = await getDivisions();
+  const allGroups = await getGroups();
 
   const college = colleges.find(c => c.id === payload.college_id);
   const course = courses.find(c => c.id === payload.course_id);
@@ -412,6 +1016,7 @@ export async function saveRegistration(payload: {
       group_id: gid,
       request_type: 'MEMBER' as const,
       status: 'PENDING' as const,
+      group: allGroups.find(g => g.id === gid),
     })),
     ...payload.leader_group_ids.map(gid => ({
       id: crypto.randomUUID(),
@@ -419,6 +1024,7 @@ export async function saveRegistration(payload: {
       group_id: gid,
       request_type: 'LEADER' as const,
       status: 'PENDING' as const,
+      group: allGroups.find(g => g.id === gid),
     })),
   ];
 

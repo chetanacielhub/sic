@@ -107,30 +107,6 @@ function AssociateAdminLoginForm() {
     }
   };
 
-  // Demo testing account login for testing evaluation
-  const loginWithDemoAdmin = async (email: string) => {
-    try {
-      setIsGoogleLoading(true);
-      setError(null);
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password: 'DemoPassword2027!',
-      });
-      if (authError) {
-        setError(authError.message);
-        return;
-      }
-      if (data.user) {
-        router.push('/associate-admin/dashboard');
-        router.refresh();
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Login failed');
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-[80vh] flex flex-col justify-center items-center py-6 sm:py-10 px-3 sm:px-4">
       <div className="w-full max-w-md bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl p-5 sm:p-8 space-y-5 sm:space-y-6">
@@ -182,31 +158,6 @@ function AssociateAdminLoginForm() {
           <p className="text-[11px] text-slate-400 text-center leading-relaxed">
             Only accounts with an authorized <strong>Associate Administrator</strong> or <strong>Super Admin</strong> assignment can access this portal.
           </p>
-        </div>
-
-        {/* Quick Testing Identities for Evaluators */}
-        <div className="pt-4 border-t border-slate-100">
-          <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1">
-            <Users className="h-3 w-3" /> Quick Evaluation Credentials:
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-[11px]">
-            <button
-              type="button"
-              onClick={() => loginWithDemoAdmin('aarav.patel@sic.internal')}
-              className="p-2.5 min-h-[44px] text-left bg-slate-50 hover:bg-slate-100 active:bg-slate-200 rounded-xl border border-slate-200/60 cursor-pointer touch-manipulation"
-            >
-              <div className="font-bold text-slate-800">Aarav Patel</div>
-              <div className="text-slate-400 truncate">Associate Admin</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => loginWithDemoAdmin('director@sic.internal')}
-              className="p-2.5 min-h-[44px] text-left bg-slate-50 hover:bg-slate-100 active:bg-slate-200 rounded-xl border border-slate-200/60 cursor-pointer touch-manipulation"
-            >
-              <div className="font-bold text-slate-800">Director</div>
-              <div className="text-slate-400 truncate">Super Admin</div>
-            </button>
-          </div>
         </div>
 
         {/* Footer */}

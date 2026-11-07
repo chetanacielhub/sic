@@ -1,21 +1,49 @@
 // ============================================================================
 // SIC Unified Attendance & Operations Management System
 // Page: /sic/members
-// Member Directory & Multi-Group Profile Overview
+// Member Directory, Invite User, Ban/Unban & Admin Member Approval Console
 // ============================================================================
 
-import { Users, Mail, Building, ShieldCheck, Layers } from 'lucide-react';
-import { createAdminClient } from '@/lib/supabase/admin';
+import React from 'react';
+import { createClient } from '@/lib/supabase/server';
+import { getCurrentMember } from '@/lib/auth/session';
+import { getAssociateAdminScope } from '@/lib/auth/rbac';
+import { getRegistrations, getStoredMembers, getGroups } from '@/lib/academic/store';
+import { MembersDirectoryClient, DirectoryMemberItem } from '@/components/sic/members-directory-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function MembersPage() {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
+  const currentMember = await getCurrentMember();
 
-  const { data: members } = await adminClient
+  let isAdmin = false;
+  let isSuperAdmin = false;
+  let scopedCollegeIds: string[] = [];
+
+  if (currentMember) {
+    const scope = await getAssociateAdminScope(currentMember.id);
+    isAdmin =
+      scope.isAuthorized ||
+      currentMember.org_role === 'SUPER_ADMIN' ||
+      currentMember.org_role === 'SIC_DIRECTOR' ||
+      currentMember.org_role === 'SIC_ADMIN';
+    isSuperAdmin =
+      scope.isSuperAdmin ||
+      currentMember.org_role === 'SUPER_ADMIN' ||
+      currentMember.org_role === 'SIC_DIRECTOR';
+    scopedCollegeIds = scope.collegeIds;
+  }
+
+  // 1. Fetch members from Supabase using authenticated client
+  const { data: dbMembers } = await supabase
     .from('members')
     .select(`
       *,
+      college:colleges(*),
+      course:courses(*),
+      academic_year:academic_years(*),
+      division:divisions(*),
       group_memberships(
         status,
         group:groups(id, name, code)
@@ -23,87 +51,102 @@ export default async function MembersPage() {
     `)
     .order('member_code', { ascending: true });
 
+  // 2. Fetch registrations and groups
+  const [allRegistrations, availableGroups] = await Promise.all([
+    getRegistrations({
+      collegeIds: !isSuperAdmin && scopedCollegeIds.length > 0 ? scopedCollegeIds : undefined,
+    }),
+    getGroups(),
+  ]);
+
+  // 3. Build unified directory member list (DB members + Stored/Invited members + Approved/Suspended Registrations)
+  const directoryMap = new Map<string, DirectoryMemberItem>();
+
+  for (const m of dbMembers || []) {
+    const activeGroups = ((m.group_memberships || []) as Array<{
+      status: string;
+      group: { id?: string; code: string; name: string } | Array<{ id?: string; code: string; name: string }>;
+    }>)
+      .filter(gm => gm.status === 'ACTIVE')
+      .map(gm => (Array.isArray(gm.group) ? gm.group[0] : gm.group))
+      .filter(Boolean);
+
+    directoryMap.set(m.email.toLowerCase(), {
+      ...m,
+      activeGroups,
+    } as DirectoryMemberItem);
+  }
+
+  // Merge invited/managed members from store
+  for (const sm of getStoredMembers()) {
+    directoryMap.set(sm.email.toLowerCase(), {
+      ...sm,
+      activeGroups: sm.activeGroups || [],
+    });
+  }
+
+  // Ensure any APPROVED or SUSPENDED registrations in the store are also represented in the directory
+  for (const reg of allRegistrations) {
+    if (
+      (reg.status === 'APPROVED' || reg.status === 'SUSPENDED') &&
+      !directoryMap.has(reg.email.toLowerCase())
+    ) {
+      const cleanCode = reg.auth_user_id.replace(/-/g, '').slice(0, 8).toUpperCase();
+      const approvedGroups = (reg.requested_groups || [])
+        .filter(rg => rg.request_type === 'MEMBER' && rg.status === 'APPROVED')
+        .map(rg => ({
+          id: rg.group_id,
+          code: rg.group?.code || 'SIC',
+          name: rg.group?.name || 'SIC Group',
+        }));
+
+      directoryMap.set(reg.email.toLowerCase(), {
+        id: reg.member_id || reg.id,
+        auth_user_id: reg.auth_user_id,
+        member_code: `SIC-${cleanCode}`,
+        full_name: reg.full_name,
+        email: reg.email,
+        phone: null,
+        department: reg.course?.name || 'Innovation & Operations',
+        designation: 'SIC Member',
+        org_role: 'MEMBER',
+        status: reg.status === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE',
+        avatar_url: reg.avatar_url || null,
+        college_id: reg.college_id,
+        course_id: reg.course_id,
+        academic_year_id: reg.academic_year_id,
+        division_id: reg.division_id,
+        roll_number: reg.roll_number,
+        college: reg.college,
+        course: reg.course,
+        academic_year: reg.academic_year,
+        division: reg.division,
+        joined_at: reg.reviewed_at || reg.created_at,
+        created_at: reg.created_at,
+        updated_at: reg.updated_at,
+        activeGroups: approvedGroups,
+      });
+    }
+  }
+
+  // Ensure the current admin is also visible if not yet in DB
+  if (currentMember && !directoryMap.has(currentMember.email.toLowerCase())) {
+    directoryMap.set(currentMember.email.toLowerCase(), {
+      ...currentMember,
+      activeGroups: [],
+    });
+  }
+
+  const initialMembers = Array.from(directoryMap.values());
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-emerald-700" />
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">SIC Member Directory</h1>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Institutional identities, roles, departments, and cross-group affiliations.
-          </p>
-        </div>
-      </div>
-
-      {/* Members Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {(members || []).map((member) => {
-          const activeGroups = ((member.group_memberships || []) as any[])
-            .filter((gm: any) => gm.status === 'ACTIVE')
-            .map((gm: any) => Array.isArray(gm.group) ? gm.group[0] : gm.group)
-            .filter(Boolean);
-
-          return (
-            <div
-              key={member.id}
-              className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                    {member.member_code}
-                  </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    member.org_role === 'SIC_DIRECTOR' || member.org_role === 'SIC_ADMIN'
-                      ? 'bg-purple-100 text-purple-800'
-                      : 'bg-emerald-100 text-emerald-800'
-                  }`}>
-                    {member.org_role?.replace('_', ' ')}
-                  </span>
-                </div>
-
-                <h2 className="text-base font-bold text-slate-900 mt-3">{member.full_name}</h2>
-                <div className="text-xs text-slate-500">{member.designation}</div>
-
-                <div className="mt-4 space-y-1.5 text-xs text-slate-600">
-                  <div className="flex items-center gap-2">
-                    <Building className="h-3.5 w-3.5 text-slate-400" />
-                    <span>{member.department}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-3.5 w-3.5 text-slate-400" />
-                    <span className="truncate">{member.email}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Group Memberships (Multi-group support demonstration) */}
-              <div className="mt-5 pt-3 border-t border-slate-100">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1">
-                  <Layers className="h-3 w-3" /> Group Affiliations ({activeGroups.length}):
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {activeGroups.length === 0 ? (
-                    <span className="text-xs text-slate-400 italic">No groups assigned</span>
-                  ) : (
-                    activeGroups.map((g: { code: string; name: string }) => (
-                      <span
-                        key={g.code}
-                        className="px-2 py-0.5 text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-md"
-                      >
-                        {g.code}
-                      </span>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <MembersDirectoryClient
+      initialMembers={initialMembers}
+      initialRegistrations={isAdmin ? allRegistrations : []}
+      availableGroups={availableGroups}
+      isAdmin={isAdmin}
+      isSuperAdmin={isSuperAdmin}
+      currentMemberEmail={currentMember?.email}
+    />
   );
 }

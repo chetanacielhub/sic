@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { z } from 'zod';
 
 const ApproveSchema = z.object({
-  approved_by: z.string().uuid(),
+  approved_by: z.string().min(1),
 });
 
 export async function POST(

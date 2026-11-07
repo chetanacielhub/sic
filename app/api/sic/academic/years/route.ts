@@ -5,7 +5,7 @@ import { getAssociateAdminScope } from '@/lib/auth/rbac';
 import { z } from 'zod';
 
 const CreateYearSchema = z.object({
-  course_id: z.string().uuid(),
+  course_id: z.string().min(1),
   year_name: z.string().min(2).max(64),
   year_number: z.number().int().min(1).max(6),
 });

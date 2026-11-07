@@ -8,8 +8,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { z } from 'zod';
 
 const AddMemberSchema = z.object({
-  member_id: z.string().uuid(),
-  added_by: z.string().uuid().optional().nullable(),
+  member_id: z.string().min(1),
+  added_by: z.string().min(1).optional().nullable(),
 });
 
 export async function GET(

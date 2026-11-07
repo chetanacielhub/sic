@@ -333,7 +333,7 @@ function RegistrationForm() {
       setErrorMessage('Please enter your institutional roll number.');
       return;
     }
-    if (memberGroupIds.length === 0) {
+    if (availableGroups.length > 0 && memberGroupIds.length === 0) {
       setErrorMessage('Please select at least one SIC Group under "Member Of".');
       return;
     }
@@ -667,12 +667,20 @@ function RegistrationForm() {
           {/* Member Of (Multi-select) */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-800 flex items-center justify-between">
-              <span>Member Of (Requested Groups) <span className="text-rose-500">*</span></span>
+              <span>
+                Member Of (Requested Groups){' '}
+                {availableGroups.length > 0 && <span className="text-rose-500">*</span>}
+              </span>
               <span className="text-[11px] text-slate-400 font-normal">
                 {memberGroupIds.length} selected
               </span>
             </label>
 
+            {availableGroups.length === 0 ? (
+              <div className="p-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-xs text-slate-500 text-center">
+                No SIC Groups have been configured by the Administrator yet. You may submit your registration now, or ask your Admin to create SIC Groups in the Associate Admin Console.
+              </div>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {availableGroups.map((group) => {
                 const isSelected = memberGroupIds.includes(group.id);
@@ -709,6 +717,7 @@ function RegistrationForm() {
                 );
               })}
             </div>
+            )}
           </div>
 
           {/* Leader Of (Multi-select) */}

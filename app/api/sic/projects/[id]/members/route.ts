@@ -11,7 +11,7 @@ import { resolveUserContext } from '@/lib/auth/rbac';
 import { z } from 'zod';
 
 const AddProjectMemberSchema = z.object({
-  member_id: z.string().uuid(),
+  member_id: z.string().min(1),
   role: z.enum(['PROJECT_ADMIN', 'LEAD', 'MEMBER']).default('MEMBER'),
 });
 

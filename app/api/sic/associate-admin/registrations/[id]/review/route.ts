@@ -7,8 +7,8 @@ import { z } from 'zod';
 const ReviewActionSchema = z.object({
   action: z.enum(['APPROVE', 'REJECT', 'REQUEST_CORRECTION']),
   notes: z.string().optional(),
-  approved_group_ids: z.array(z.string().uuid()).optional(),
-  approved_leader_group_ids: z.array(z.string().uuid()).optional(),
+  approved_group_ids: z.array(z.string().min(1)).optional(),
+  approved_leader_group_ids: z.array(z.string().min(1)).optional(),
 });
 
 export async function POST(

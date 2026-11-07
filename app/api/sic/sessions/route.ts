@@ -14,15 +14,15 @@ const CreateSessionSchema = z.object({
     'DAILY_DUTY', 'GROUP_MEETING', 'MULTI_GROUP_MEETING', 
     'GENERAL_MEETING', 'WORKSHOP', 'EVENT'
   ]).default('GROUP_MEETING'),
-  host_id: z.string().uuid(),
-  group_ids: z.array(z.string().uuid()).min(1),
+  host_id: z.string().min(1),
+  group_ids: z.array(z.string().min(1)).min(1),
   scheduled_start: z.string().datetime(),
   scheduled_end: z.string().datetime(),
   venue: z.string().optional().nullable(),
   meeting_link: z.string().url().optional().nullable(),
   qr_rotation_interval_sec: z.number().int().min(15).max(120).default(30),
   late_grace_period_mins: z.number().int().min(0).max(120).default(15),
-  created_by: z.string().uuid().optional().nullable(),
+  created_by: z.string().min(1).optional().nullable(),
 });
 
 export async function GET(request: NextRequest) {

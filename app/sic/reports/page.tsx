@@ -17,24 +17,31 @@ export default async function ReportsPage() {
     { data: auditLogs },
     { count: sessionCount },
     { data: groups },
+    { data: attendanceRecords },
+    { count: momCount },
   ] = await Promise.all([
-    adminClient.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(6),
+    adminClient.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(20),
     adminClient.from('sessions').select('*', { count: 'exact', head: true }),
-    adminClient.from('groups').select('name, code'),
+    adminClient.from('groups').select('id, name, code, group_memberships(count)'),
+    adminClient.from('attendance_records').select('status, created_at'),
+    adminClient.from('meeting_minutes').select('*', { count: 'exact', head: true }),
   ]);
 
-  const trends = [
-    { month: 'Jun', attendancePct: 84, sessions: 12 },
-    { month: 'Jul', attendancePct: 88, sessions: 15 },
-    { month: 'Aug', attendancePct: 82, sessions: 14 },
-    { month: 'Sep', attendancePct: 91, sessions: 18 },
-    { month: 'Oct', attendancePct: 92, sessions: sessionCount || 6 },
-  ];
+  const totalAtt = (attendanceRecords || []).length;
+  const presentCount = (attendanceRecords || []).filter(r => r.status === 'PRESENT' || r.status === 'LATE').length;
+  const punctualCount = (attendanceRecords || []).filter(r => r.status === 'PRESENT').length;
+  const overallTurnoutPct = totalAtt > 0 ? Math.round((presentCount / totalAtt) * 1000) / 10 : 0;
+  const punctualityPct = totalAtt > 0 ? Math.round((punctualCount / totalAtt) * 1000) / 10 : 0;
+  const momCompliancePct = (sessionCount && sessionCount > 0)
+    ? Math.min(100, Math.round(((momCount || 0) / sessionCount) * 100))
+    : 0;
 
-  const groupComparison = (groups || []).map((g, idx) => ({
+  const trends: Array<{ month: string; attendancePct: number; sessions: number }> = [];
+
+  const groupComparison = (groups || []).map((g: { code?: string; name: string; group_memberships?: Array<{ count: number }> }) => ({
     group_name: g.code || g.name,
-    attendancePct: 84 + (idx * 6),
-    totalMembers: 12 + idx * 5,
+    attendancePct: overallTurnoutPct,
+    totalMembers: g.group_memberships?.[0]?.count || 0,
   }));
 
   return (
@@ -65,23 +72,23 @@ export default async function ReportsPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
           <div className="text-xs font-semibold text-slate-500">Overall Turnout</div>
-          <div className="text-2xl font-black text-slate-900 mt-1">92.4%</div>
-          <div className="text-[11px] text-emerald-700 mt-0.5">Across all sessions</div>
+          <div className="text-2xl font-black text-slate-900 mt-1">{overallTurnoutPct}%</div>
+          <div className="text-[11px] text-emerald-700 mt-0.5">{totalAtt} total check-ins</div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
           <div className="text-xs font-semibold text-slate-500">Punctuality Rate</div>
-          <div className="text-2xl font-black text-slate-900 mt-1">87.1%</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">Within 15m grace window</div>
+          <div className="text-2xl font-black text-slate-900 mt-1">{punctualityPct}%</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Within grace window</div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
           <div className="text-xs font-semibold text-slate-500">Total Audit Logs</div>
-          <div className="text-2xl font-black text-slate-900 mt-1">100%</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">All actions tracked</div>
+          <div className="text-2xl font-black text-slate-900 mt-1">{(auditLogs || []).length}</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Recorded events</div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
           <div className="text-xs font-semibold text-slate-500">MoM Compliance</div>
-          <div className="text-2xl font-black text-slate-900 mt-1">95%</div>
-          <div className="text-[11px] text-emerald-700 mt-0.5">Action items assigned</div>
+          <div className="text-2xl font-black text-slate-900 mt-1">{momCompliancePct}%</div>
+          <div className="text-[11px] text-emerald-700 mt-0.5">{momCount || 0} of {sessionCount || 0} sessions</div>
         </div>
       </div>
 

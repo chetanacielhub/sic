@@ -5,13 +5,13 @@ import { z } from 'zod';
 
 const SubmitRegistrationSchema = z.object({
   full_name: z.string().min(2).max(255),
-  college_id: z.string().uuid(),
-  course_id: z.string().uuid(),
-  academic_year_id: z.string().uuid(),
-  division_id: z.string().uuid(),
+  college_id: z.string().min(1),
+  course_id: z.string().min(1),
+  academic_year_id: z.string().min(1),
+  division_id: z.string().min(1),
   roll_number: z.string().min(1).max(64),
-  member_group_ids: z.array(z.string().uuid()).min(1, 'Please select at least one SIC Group to join.'),
-  leader_group_ids: z.array(z.string().uuid()).default([]),
+  member_group_ids: z.array(z.string().min(1)).default([]),
+  leader_group_ids: z.array(z.string().min(1)).default([]),
   avatar_url: z.string().optional().nullable(),
 });
 

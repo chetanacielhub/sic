@@ -5,16 +5,16 @@ import { getAssociateAdminScope } from '@/lib/auth/rbac';
 import { z } from 'zod';
 
 const CreateDivisionSchema = z.object({
-  college_id: z.string().uuid(),
-  course_id: z.string().uuid(),
-  academic_year_id: z.string().uuid(),
+  college_id: z.string().min(1),
+  course_id: z.string().min(1),
+  academic_year_id: z.string().min(1),
   name: z.string().min(1).max(32),
 });
 
 const SetDivisionCountSchema = z.object({
-  college_id: z.string().uuid(),
-  course_id: z.string().uuid(),
-  academic_year_id: z.string().uuid(),
+  college_id: z.string().min(1),
+  course_id: z.string().min(1),
+  academic_year_id: z.string().min(1),
   count: z.number().int().min(1).max(10), // e.g. setting 3 divisions creates Division A, B, C
 });
 

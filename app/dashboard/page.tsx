@@ -189,9 +189,9 @@ export default async function RoleAwareDashboardPage({
           </Link>
         ) : (
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col justify-between">
-            <span className="text-xs font-bold text-slate-400">My Attendance</span>
-            <div className="text-2xl font-black text-slate-900 mt-2">95%</div>
-            <p className="text-[11px] text-slate-500">Punctual record</p>
+            <span className="text-xs font-bold text-slate-400">My Check-ins</span>
+            <div className="text-2xl font-black text-slate-900 mt-2">{(myAttendance || []).length}</div>
+            <p className="text-[11px] text-slate-500">Recorded sessions</p>
           </div>
         )}
 

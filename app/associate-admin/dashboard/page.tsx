@@ -8,7 +8,7 @@ import React from 'react';
 import { redirect } from 'next/navigation';
 import { getCurrentMember } from '@/lib/auth/session';
 import { getAssociateAdminScope } from '@/lib/auth/rbac';
-import { getColleges, getCourses, getAcademicYears, getDivisions, getRegistrations } from '@/lib/academic/store';
+import { getColleges, getCourses, getAcademicYears, getDivisions, getGroups, getRegistrations } from '@/lib/academic/store';
 import { AssociateAdminConsole } from '@/components/sic/associate-admin-console';
 
 export const dynamic = 'force-dynamic';
@@ -26,11 +26,12 @@ export default async function AssociateAdminDashboardPage() {
   }
 
   // Load institutional academic structure and scoped registrations
-  const [colleges, allCourses, allYears, allDivisions, registrations] = await Promise.all([
+  const [colleges, allCourses, allYears, allDivisions, allGroups, registrations] = await Promise.all([
     getColleges(),
     getCourses(),
     getAcademicYears(),
     getDivisions(),
+    getGroups(),
     getRegistrations({
       collegeIds: scope.collegeIds.length > 0 ? scope.collegeIds : undefined,
     }),
@@ -50,6 +51,7 @@ export default async function AssociateAdminDashboardPage() {
         initialCourses={allCourses}
         initialYears={allYears}
         initialDivisions={allDivisions}
+        initialGroups={allGroups}
         initialRegistrations={registrations}
       />
     </div>

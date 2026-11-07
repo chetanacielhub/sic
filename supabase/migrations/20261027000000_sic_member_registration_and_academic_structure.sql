@@ -284,17 +284,22 @@ BEGIN
         (v_year_bms_3, v_course_bms, v_chsc_id, 'Division A')
     ON CONFLICT (academic_year_id, name) DO NOTHING;
 
-    -- 5. Seed Demo Associate Admin Account
-    -- Grant Aarav Patel (a1111111-1111-1111-1111-111111111111) Associate Admin role for CIMR & CHSC
-    UPDATE members 
-    SET org_role = 'ASSOCIATE_ADMIN'
-    WHERE id = 'a1111111-1111-1111-1111-111111111111';
-
-    INSERT INTO associate_admins (member_id, college_id)
-    VALUES 
-        ('a1111111-1111-1111-1111-111111111111', v_cimr_id),
-        ('a1111111-1111-1111-1111-111111111111', v_chsc_id)
-    ON CONFLICT (member_id, college_id) DO NOTHING;
+    -- 5. Seed Super Admin (chetana.cielhub@gmail.com)
+    INSERT INTO members (
+        id, member_code, full_name, email, department, designation, org_role, status
+    ) VALUES (
+        'a0000000-0000-0000-0000-000000000000',
+        'SIC-ADM-000',
+        'Chetana CIEL Super Admin',
+        'chetana.cielhub@gmail.com',
+        'Executive Board & CIEL Operations',
+        'Platform Super Administrator',
+        'SUPER_ADMIN',
+        'ACTIVE'
+    )
+    ON CONFLICT (email) DO UPDATE SET
+        org_role = 'SUPER_ADMIN',
+        status = 'ACTIVE';
 END $$;
 
 -- ----------------------------------------------------------------------------
@@ -444,3 +449,31 @@ CREATE POLICY "Admins Read Audit Logs" ON registration_audit_logs
 
 CREATE POLICY "System Insert Audit Logs" ON registration_audit_logs 
     FOR INSERT WITH CHECK (true);
+
+-- ============================================================================
+-- 8. STORAGE BUCKET FOR MEMBER AVATARS
+-- ============================================================================
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'member-avatars',
+    'member-avatars',
+    true,
+    5242880,
+    ARRAY['image/jpeg', 'image/png', 'image/webp']
+)
+ON CONFLICT (id) DO UPDATE SET
+    public = EXCLUDED.public,
+    file_size_limit = EXCLUDED.file_size_limit,
+    allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+CREATE POLICY "Public View Member Avatars" ON storage.objects
+    FOR SELECT USING (bucket_id = 'member-avatars');
+
+CREATE POLICY "Authenticated Upload Member Avatars" ON storage.objects
+    FOR INSERT TO authenticated
+    WITH CHECK (bucket_id = 'member-avatars');
+
+CREATE POLICY "Authenticated Update Member Avatars" ON storage.objects
+    FOR UPDATE TO authenticated
+    USING (bucket_id = 'member-avatars');
+
