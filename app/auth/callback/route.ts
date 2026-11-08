@@ -9,6 +9,26 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentMember, getCurrentUserRegistration } from '@/lib/auth/session';
 import { getAssociateAdminScope } from '@/lib/auth/rbac';
 
+function getPublicOrigin(request: NextRequest, fallbackOrigin: string): string {
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
+  if (forwardedHost) {
+    return `${forwardedProto}://${forwardedHost.split(',')[0].trim()}`;
+  }
+
+  const host = request.headers.get('host');
+  if (host && !host.includes('localhost') && !host.startsWith('127.0.0.1')) {
+    const proto = host.includes(':') ? 'http' : 'https';
+    return `${proto}://${host}`;
+  }
+
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
+  }
+
+  return fallbackOrigin;
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
@@ -17,10 +37,8 @@ export async function GET(request: NextRequest) {
   const errorParam = searchParams.get('error');
   const errorDescription = searchParams.get('error_description');
 
-// Determine base host (for load balancers/proxies)
-  const forwardedHost = request.headers.get('x-forwarded-host');
-  const isLocalEnv = process.env.NODE_ENV === 'development';
-  const baseOrigin = (isLocalEnv || !forwardedHost) ? origin : `https://${forwardedHost}`;
+  // Determine base host (for load balancers/proxies/production domain)
+  const baseOrigin = getPublicOrigin(request, origin);
 
   // Helper to validate and sanitize internal redirect paths (prevent open redirects)
   const getValidRedirectPath = (target: string | null, fallback: string = '/dashboard'): string => {

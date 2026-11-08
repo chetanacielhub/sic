@@ -74,7 +74,10 @@ function AssociateAdminLoginForm() {
       setError(null);
 
       // Direct through auth callback specifying role=associate_admin and next=/associate-admin/dashboard
-      const redirectUrl = `${window.location.origin}/auth/callback?role=associate_admin&next=/associate-admin/dashboard`;
+      const siteOrigin = (
+        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+      ).replace(/\/$/, '');
+      const redirectUrl = `${siteOrigin}/auth/callback?role=associate_admin&next=/associate-admin/dashboard`;
 
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',

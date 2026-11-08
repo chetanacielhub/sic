@@ -6,11 +6,32 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+function getPublicOrigin(request: NextRequest): string {
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
+  if (forwardedHost) {
+    return `${forwardedProto}://${forwardedHost.split(',')[0].trim()}`;
+  }
+
+  const host = request.headers.get('host');
+  if (host && !host.includes('localhost') && !host.startsWith('127.0.0.1')) {
+    const proto = host.includes(':') ? 'http' : 'https';
+    return `${proto}://${host}`;
+  }
+
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
+  }
+
+  return request.nextUrl.origin;
+}
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
 
+  const publicOrigin = getPublicOrigin(request);
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://oovusdcssgdspizneqjr.supabase.co';
   const key =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
@@ -34,12 +55,19 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  const pathname = request.nextUrl.pathname;
+
+  // If Supabase OAuth redirected to root /?code=... instead of /auth/callback, forward to /auth/callback
+  if (pathname === '/' && request.nextUrl.searchParams.has('code')) {
+    return NextResponse.redirect(
+      new URL(`/auth/callback${request.nextUrl.search}`, publicOrigin)
+    );
+  }
+
   // Refresh auth session
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
 
   // 1. API Route Handling (NEVER redirect API routes to HTML login pages)
   if (pathname.startsWith('/api/')) {
@@ -74,9 +102,9 @@ export async function middleware(request: NextRequest) {
   // 3. Root index handling: start with /login if unauthenticated, or /dashboard if authenticated
   if (pathname === '/') {
     if (user) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      return NextResponse.redirect(new URL('/dashboard', publicOrigin));
     }
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL('/login', publicOrigin));
   }
 
   // 4. Public Web Pages
@@ -94,24 +122,23 @@ export async function middleware(request: NextRequest) {
   if (!user && !isPublicPage) {
     // If accessing associate admin dashboard without login, redirect to associate admin login
     if (pathname.startsWith('/associate-admin')) {
-      const redirectUrl = new URL('/associate-admin-login', request.url);
+      const redirectUrl = new URL('/associate-admin-login', publicOrigin);
       redirectUrl.searchParams.set('redirectTo', pathname);
       return NextResponse.redirect(redirectUrl);
     }
 
-    const redirectUrl = new URL('/login', request.url);
+    const redirectUrl = new URL('/login', publicOrigin);
     redirectUrl.searchParams.set('redirectTo', pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
   // If authenticated user tries to access /login or /forgot-password
   if (user && (pathname === '/login' || pathname === '/forgot-password')) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.redirect(new URL('/dashboard', publicOrigin));
   }
 
   return supabaseResponse;
 }
-
 
 export const config = {
   matcher: [

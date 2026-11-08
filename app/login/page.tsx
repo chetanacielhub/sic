@@ -72,7 +72,10 @@ function LoginForm() {
       setIsGoogleLoading(true);
       setError(null);
 
-      const redirectUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
+      const siteOrigin = (
+        process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+      ).replace(/\/$/, '');
+      const redirectUrl = `${siteOrigin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
 
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
