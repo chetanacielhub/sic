@@ -9,24 +9,49 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentMember, getCurrentUserRegistration } from '@/lib/auth/session';
 import { getAssociateAdminScope } from '@/lib/auth/rbac';
 
-function getPublicOrigin(request: NextRequest, fallbackOrigin: string): string {
-  const forwardedHost = request.headers.get('x-forwarded-host');
-  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
-  if (forwardedHost) {
-    return `${forwardedProto}://${forwardedHost.split(',')[0].trim()}`;
+const CANONICAL_PRODUCTION_ORIGIN = 'https://sic.cielhub.org';
+
+function resolveBaseOrigin(request: NextRequest, requestOrigin: string): string {
+  const isLocalEnv = process.env.NODE_ENV === 'development';
+  if (isLocalEnv) {
+    return requestOrigin;
   }
 
-  const host = request.headers.get('host');
+  // In production, prefer NEXT_PUBLIC_APP_URL (or NEXT_PUBLIC_SITE_URL),
+  // then non-localhost forwarded/host headers, and finally the canonical
+  // production domain so production never redirects to localhost:3000.
+  const configuredAppUrl = (
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL
+  )?.trim();
+  if (configuredAppUrl) {
+    try {
+      const parsedOrigin = new URL(configuredAppUrl).origin;
+      if (!parsedOrigin.includes('localhost') && !parsedOrigin.includes('127.0.0.1')) {
+        return parsedOrigin;
+      }
+    } catch {}
+  }
+
+  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const forwardedProto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || 'https';
+  if (
+    forwardedHost &&
+    !forwardedHost.includes('localhost') &&
+    !forwardedHost.startsWith('127.0.0.1')
+  ) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  const host = request.headers.get('host')?.trim();
   if (host && !host.includes('localhost') && !host.startsWith('127.0.0.1')) {
-    const proto = host.includes(':') ? 'http' : 'https';
-    return `${proto}://${host}`;
+    return `https://${host}`;
   }
 
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
+  if (!requestOrigin.includes('localhost') && !requestOrigin.includes('127.0.0.1')) {
+    return requestOrigin;
   }
 
-  return fallbackOrigin;
+  return CANONICAL_PRODUCTION_ORIGIN;
 }
 
 export async function GET(request: NextRequest) {
@@ -37,8 +62,9 @@ export async function GET(request: NextRequest) {
   const errorParam = searchParams.get('error');
   const errorDescription = searchParams.get('error_description');
 
-  // Determine base host (for load balancers/proxies/production domain)
-  const baseOrigin = getPublicOrigin(request, origin);
+  // Use the canonical production URL so proxy/forwarded headers cannot
+  // accidentally send a production OAuth session back to localhost.
+  const baseOrigin = resolveBaseOrigin(request, origin);
 
   // Helper to validate and sanitize internal redirect paths (prevent open redirects)
   const getValidRedirectPath = (target: string | null, fallback: string = '/dashboard'): string => {
@@ -131,5 +157,3 @@ export async function GET(request: NextRequest) {
   // Return user to login with error parameter if code is missing
   return NextResponse.redirect(`${baseOrigin}${defaultErrorRoute}?error=MissingAuthCode`);
 }
-
-

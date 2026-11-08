@@ -7,23 +7,39 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 function getPublicOrigin(request: NextRequest): string {
-  const forwardedHost = request.headers.get('x-forwarded-host');
-  const forwardedProto = request.headers.get('x-forwarded-proto') || 'https';
-  if (forwardedHost) {
-    return `${forwardedProto}://${forwardedHost.split(',')[0].trim()}`;
+  if (process.env.NODE_ENV === 'development') {
+    return request.nextUrl.origin;
   }
 
-  const host = request.headers.get('host');
+  const configuredAppUrl = (
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL
+  )?.trim();
+  if (configuredAppUrl) {
+    try {
+      const parsedOrigin = new URL(configuredAppUrl).origin;
+      if (!parsedOrigin.includes('localhost') && !parsedOrigin.includes('127.0.0.1')) {
+        return parsedOrigin;
+      }
+    } catch {}
+  }
+
+  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
+  const forwardedProto = request.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() || 'https';
+  if (
+    forwardedHost &&
+    !forwardedHost.includes('localhost') &&
+    !forwardedHost.startsWith('127.0.0.1')
+  ) {
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  const host = request.headers.get('host')?.trim();
   if (host && !host.includes('localhost') && !host.startsWith('127.0.0.1')) {
     const proto = host.includes(':') ? 'http' : 'https';
     return `${proto}://${host}`;
   }
 
-  if (process.env.NEXT_PUBLIC_SITE_URL) {
-    return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, '');
-  }
-
-  return request.nextUrl.origin;
+  return 'https://sic.cielhub.org';
 }
 
 export async function middleware(request: NextRequest) {
