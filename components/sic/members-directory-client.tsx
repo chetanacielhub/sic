@@ -878,41 +878,51 @@ export function MembersDirectoryClient({
                     {/* Admin Management Controls (Approve / Ban / Remove) */}
                     {isAdmin && (
                       <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                        {member.status !== 'ACTIVE' && (
-                          <button
-                            type="button"
-                            disabled={processingMemberId === member.id}
-                            onClick={() => handleSetMemberStatus(member, 'ACTIVE')}
-                            className="flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-2xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                          >
-                            {processingMemberId === member.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <>
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                <span>{isBanned ? 'Approve / Unban' : 'Approve'}</span>
-                              </>
-                            )}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          disabled={processingMemberId === member.id || member.status === 'ACTIVE'}
+                          onClick={() => handleSetMemberStatus(member, 'ACTIVE')}
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                            member.status === 'ACTIVE'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
+                              : 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-2xs cursor-pointer'
+                          } disabled:opacity-75`}
+                        >
+                          {processingMemberId === member.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>
+                                {member.status === 'ACTIVE'
+                                  ? 'Approved'
+                                  : isBanned
+                                  ? 'Approve / Unban'
+                                  : 'Approve'}
+                              </span>
+                            </>
+                          )}
+                        </button>
 
-                        {member.status !== 'SUSPENDED' && (
-                          <button
-                            type="button"
-                            disabled={processingMemberId === member.id}
-                            onClick={() => handleSetMemberStatus(member, 'SUSPENDED')}
-                            className="flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
-                          >
-                            {processingMemberId === member.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <>
-                                <Ban className="h-3.5 w-3.5" />
-                                <span>Ban</span>
-                              </>
-                            )}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          disabled={processingMemberId === member.id || isBanned}
+                          onClick={() => handleSetMemberStatus(member, 'SUSPENDED')}
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                            isBanned
+                              ? 'bg-rose-100 text-rose-800 border border-rose-200 cursor-default'
+                              : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer'
+                          } disabled:opacity-75`}
+                        >
+                          {processingMemberId === member.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <>
+                              <Ban className="h-3.5 w-3.5" />
+                              <span>{isBanned ? 'Banned' : 'Ban'}</span>
+                            </>
+                          )}
+                        </button>
 
                         <button
                           type="button"
