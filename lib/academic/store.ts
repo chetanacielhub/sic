@@ -433,144 +433,124 @@ export async function setMemberBanStatus(params: {
   department?: string;
   designation?: string;
   roll_number?: string | null;
-  status: MemberStatus; // 'ACTIVE' (approve/unban) or 'SUSPENDED' (ban)
+  status: MemberStatus;
   org_role?: OrgRole;
 }): Promise<boolean> {
   const now = new Date().toISOString();
   const cleanEmail = params.email?.trim().toLowerCase();
-  const regStatus = params.status === 'SUSPENDED' ? 'SUSPENDED' : 'APPROVED';
+  const registrationStatus = params.status === 'SUSPENDED' ? 'SUSPENDED' : 'APPROVED';
+  const admin = await getDbClient();
 
-  try {
-    const admin = await getDbClient();
-    const updatePayload: Record<string, unknown> = {
-      status: params.status,
-      updated_at: now,
-    };
-    if (params.org_role) updatePayload.org_role = params.org_role;
+  let registration: MemberRegistration | null = null;
+  const { data: byRegistrationId, error: registrationIdError } = await admin
+    .from('member_registrations').select('*').eq('id', params.memberId).maybeSingle();
+  if (registrationIdError) throw new Error(registrationIdError.message);
+  registration = byRegistrationId as MemberRegistration | null;
 
-    const { data: updatedById } = await admin
-      .from('members')
-      .update(updatePayload)
-      .eq('id', params.memberId)
-      .select('id');
-
-    let updatedAny = (updatedById && updatedById.length > 0) || false;
-
-    if (cleanEmail) {
-      const { data: updatedByEmail } = await admin
-        .from('members')
-        .update(updatePayload)
-        .ilike('email', cleanEmail)
-        .select('id');
-      if (updatedByEmail && updatedByEmail.length > 0) {
-        updatedAny = true;
-      }
-    }
-
-    // If member didn't exist in `members` table yet (e.g. pending registration approved from directory), upsert
-    if (!updatedAny && cleanEmail) {
-      const cleanCode = params.memberId.replace(/-/g, '').slice(0, 8).toUpperCase();
-      await admin.from('members').upsert(
-        {
-          id: params.memberId,
-          member_code: `SIC-${cleanCode}`,
-          full_name: params.full_name?.trim() || cleanEmail.split('@')[0],
-          email: cleanEmail,
-          department: params.department || 'Innovation & Operations',
-          designation: params.designation || 'SIC Member',
-          org_role: params.org_role || 'MEMBER',
-          status: params.status,
-          roll_number: params.roll_number || null,
-          updated_at: now,
-        },
-        { onConflict: 'email' }
-      );
-    }
-
-    // Also update `member_registrations` in DB if present
-    await admin
-      .from('member_registrations')
-      .update({ status: regStatus, updated_at: now })
-      .or(
-        cleanEmail
-          ? `id.eq.${params.memberId},member_id.eq.${params.memberId},email.ilike.${cleanEmail}`
-          : `id.eq.${params.memberId},member_id.eq.${params.memberId}`
-      );
-  } catch {}
-
-  if (globalThis.__sic_removed_members) {
-    globalThis.__sic_removed_members = globalThis.__sic_removed_members.filter(
-      k =>
-        k.toLowerCase() !== params.memberId.toLowerCase() &&
-        (!cleanEmail || k.toLowerCase() !== cleanEmail)
-    );
+  if (!registration && cleanEmail) {
+    const { data, error } = await admin.from('member_registrations')
+      .select('*').eq('email', cleanEmail).maybeSingle();
+    if (error) throw new Error(error.message);
+    registration = data as MemberRegistration | null;
   }
 
-  // Update or upsert in-memory members
-  if (!globalThis.__sic_members) globalThis.__sic_members = [];
-  let foundInMem = false;
-  for (const m of globalThis.__sic_members) {
-    if (m.id === params.memberId || (cleanEmail && m.email.toLowerCase() === cleanEmail)) {
-      m.status = params.status;
-      if (params.org_role) m.org_role = params.org_role;
-      if (params.full_name) m.full_name = params.full_name;
-      m.updated_at = now;
-      foundInMem = true;
-    }
+  const updatePayload: Record<string, unknown> = { status: params.status, updated_at: now };
+  if (params.org_role) updatePayload.org_role = params.org_role;
+
+  let { data: updatedRows, error: updateError } = await admin
+    .from('members').update(updatePayload).eq('id', params.memberId).select('id');
+  if (updateError) throw new Error(updateError.message);
+
+  if ((!updatedRows || updatedRows.length === 0) && cleanEmail) {
+    const result = await admin.from('members').update(updatePayload).eq('email', cleanEmail).select('id');
+    if (result.error) throw new Error(result.error.message);
+    updatedRows = result.data;
   }
 
-  // Sync any matching registration status in memory
-  let matchedReg: MemberRegistration | undefined;
-  if (globalThis.__sic_registrations) {
-    for (const r of globalThis.__sic_registrations) {
-      if (
-        r.member_id === params.memberId ||
-        r.id === params.memberId ||
-        (cleanEmail && r.email.toLowerCase() === cleanEmail)
-      ) {
-        r.status = regStatus;
-        r.updated_at = now;
-        matchedReg = r;
-      }
-    }
-  }
-
-  if (!foundInMem && cleanEmail) {
+  if ((!updatedRows || updatedRows.length === 0) && cleanEmail) {
     const cleanCode = params.memberId.replace(/-/g, '').slice(0, 8).toUpperCase();
-    globalThis.__sic_members.unshift({
+    const { error } = await admin.from('members').upsert({
       id: params.memberId,
-      auth_user_id: matchedReg?.auth_user_id || null,
+      auth_user_id: registration?.auth_user_id || null,
       member_code: `SIC-${cleanCode}`,
-      full_name:
-        params.full_name?.trim() ||
-        matchedReg?.full_name ||
-        cleanEmail.split('@')[0],
+      full_name: params.full_name?.trim() || registration?.full_name || cleanEmail.split('@')[0],
       email: cleanEmail,
-      phone: null,
-      department:
-        params.department ||
-        matchedReg?.course?.name ||
-        'Innovation & Operations',
+      avatar_url: registration?.avatar_url || null,
+      department: params.department || registration?.course?.name || 'Innovation & Operations',
       designation: params.designation || 'SIC Member',
       org_role: params.org_role || 'MEMBER',
       status: params.status,
-      avatar_url: matchedReg?.avatar_url || null,
-      college_id: matchedReg?.college_id || null,
-      course_id: matchedReg?.course_id || null,
-      academic_year_id: matchedReg?.academic_year_id || null,
-      division_id: matchedReg?.division_id || null,
-      roll_number: params.roll_number ?? matchedReg?.roll_number ?? null,
-      college: matchedReg?.college,
-      course: matchedReg?.course,
-      academic_year: matchedReg?.academic_year,
-      division: matchedReg?.division,
-      joined_at: now.split('T')[0],
-      created_at: matchedReg?.created_at || now,
+      college_id: registration?.college_id || null,
+      course_id: registration?.course_id || null,
+      academic_year_id: registration?.academic_year_id || null,
+      division_id: registration?.division_id || null,
+      roll_number: params.roll_number ?? registration?.roll_number ?? null,
+      registration_id: registration?.id || null,
       updated_at: now,
+    }, { onConflict: 'email' });
+    if (error) throw new Error(error.message);
+  }
+
+  if (registration) {
+    const { error } = await admin.from('member_registrations').update({
+      status: registrationStatus,
+      member_id: params.status === 'ACTIVE' ? params.memberId : registration.member_id,
+      updated_at: now,
+    }).eq('id', registration.id);
+    if (error) throw new Error(error.message);
+
+    const { error: auditError } = await admin.from('registration_audit_logs').insert({
+      registration_id: registration.id,
+      action: registrationStatus,
+      notes: params.status === 'SUSPENDED' ? 'Member account suspended by an administrator.' : 'Member approved or unbanned by an administrator.',
+    });
+    if (auditError) throw new Error(auditError.message);
+  }
+
+  if (globalThis.__sic_removed_members) {
+    globalThis.__sic_removed_members = globalThis.__sic_removed_members.filter(
+      key => key.toLowerCase() !== params.memberId.toLowerCase() &&
+        (!cleanEmail || key.toLowerCase() !== cleanEmail)
+    );
+  }
+  if (!globalThis.__sic_members) globalThis.__sic_members = [];
+  let foundInMemory = false;
+  for (const member of globalThis.__sic_members) {
+    if (member.id === params.memberId || (cleanEmail && member.email.toLowerCase() === cleanEmail)) {
+      member.status = params.status;
+      if (params.org_role) member.org_role = params.org_role;
+      if (params.full_name) member.full_name = params.full_name;
+      member.updated_at = now;
+      foundInMemory = true;
+    }
+  }
+  if (globalThis.__sic_registrations) {
+    for (const item of globalThis.__sic_registrations) {
+      if (item.id === params.memberId || item.member_id === params.memberId ||
+        (cleanEmail && item.email.toLowerCase() === cleanEmail)) {
+        item.status = registrationStatus;
+        item.updated_at = now;
+        if (params.status === 'ACTIVE') item.member_id = params.memberId;
+      }
+    }
+  }
+  if (!foundInMemory && cleanEmail) {
+    const cleanCode = params.memberId.replace(/-/g, '').slice(0, 8).toUpperCase();
+    globalThis.__sic_members.unshift({
+      id: params.memberId, auth_user_id: registration?.auth_user_id || null,
+      member_code: `SIC-${cleanCode}`, full_name: params.full_name?.trim() || registration?.full_name || cleanEmail.split('@')[0],
+      email: cleanEmail, phone: null, department: params.department || registration?.course?.name || 'Innovation & Operations',
+      designation: params.designation || 'SIC Member', org_role: params.org_role || 'MEMBER',
+      status: params.status, avatar_url: registration?.avatar_url || null,
+      college_id: registration?.college_id || null, course_id: registration?.course_id || null,
+      academic_year_id: registration?.academic_year_id || null, division_id: registration?.division_id || null,
+      roll_number: params.roll_number ?? registration?.roll_number ?? null,
+      college: registration?.college, course: registration?.course,
+      academic_year: registration?.academic_year, division: registration?.division,
+      joined_at: now.split('T')[0], created_at: registration?.created_at || now, updated_at: now,
       activeGroups: [],
     });
   }
-
   return true;
 }
 
