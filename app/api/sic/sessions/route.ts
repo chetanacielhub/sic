@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireActiveMember } from '@/lib/auth/session';
+import { getAssociateAdminScope } from '@/lib/auth/rbac';
 import { z } from 'zod';
 
 const CreateSessionSchema = z.object({
@@ -27,6 +29,9 @@ const CreateSessionSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
+    const { member, errorResponse } = await requireActiveMember();
+    if (errorResponse || !member) return errorResponse!;
+
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const sessionType = searchParams.get('session_type');
@@ -71,10 +76,34 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const { member: currentMember, errorResponse } = await requireActiveMember();
+    if (errorResponse || !currentMember) return errorResponse!;
+
     const body = await request.json();
     const validated = CreateSessionSchema.parse(body);
 
     const adminClient = createAdminClient();
+    const scope = await getAssociateAdminScope(currentMember.id);
+    const isAdminOrOps =
+      scope.isAuthorized ||
+      ['SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 'ASSOCIATE_ADMIN', 'OPERATIONS_MANAGER'].includes(
+        currentMember.org_role
+      );
+
+    if (!isAdminOrOps) {
+      const { data: leadRows } = await adminClient
+        .from('group_leads')
+        .select('group_id')
+        .eq('member_id', currentMember.id)
+        .eq('is_active', true);
+
+      if (!leadRows || leadRows.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: Only Group Leads or Administrators can schedule sessions.' },
+          { status: 403 }
+        );
+      }
+    }
 
     // 1. Insert session record
     const { data: session, error: sessionErr } = await adminClient

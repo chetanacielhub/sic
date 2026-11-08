@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getCurrentMember } from '@/lib/auth/session';
+import { requireActiveMember } from '@/lib/auth/session';
 import { resolveUserContext } from '@/lib/auth/rbac';
 import { z } from 'zod';
 
@@ -20,6 +20,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { member: currentMember, errorResponse } = await requireActiveMember();
+    if (errorResponse || !currentMember) return errorResponse!;
+
     const { id: projectId } = await params;
     const adminClient = createAdminClient();
 
@@ -50,18 +53,21 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { member: currentMember, errorResponse } = await requireActiveMember();
+    if (errorResponse || !currentMember) return errorResponse!;
+
     const { id: projectId } = await params;
-    const currentMember = await getCurrentMember();
 
     // Verify permission: Must be Super Admin or Project Admin
-    if (currentMember) {
-      const userContext = await resolveUserContext(currentMember.id, projectId);
-      if (!userContext.isSuperAdmin && userContext.effectiveRole !== 'PROJECT_ADMIN') {
-        return NextResponse.json({
+    const userContext = await resolveUserContext(currentMember.id, projectId);
+    if (!userContext.isSuperAdmin && userContext.effectiveRole !== 'PROJECT_ADMIN') {
+      return NextResponse.json(
+        {
           success: false,
           error: 'Only Project Admins or Super Admins can assign project roles.',
-        }, { status: 403 });
-      }
+        },
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -72,14 +78,17 @@ export async function POST(
     // Upsert project membership
     const { data, error } = await adminClient
       .from('project_memberships')
-      .upsert({
-        project_id: projectId,
-        member_id: validated.member_id,
-        role: validated.role,
-        status: 'ACTIVE',
-        invited_by: currentMember?.id || null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'project_id,member_id' })
+      .upsert(
+        {
+          project_id: projectId,
+          member_id: validated.member_id,
+          role: validated.role,
+          status: 'ACTIVE',
+          invited_by: currentMember.id,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'project_id,member_id' }
+      )
       .select(`
         *,
         member:members(full_name, member_code, email)
@@ -89,13 +98,15 @@ export async function POST(
     if (error) throw error;
 
     // Record audit log
-    await adminClient.from('audit_logs').insert([{
-      actor_id: currentMember?.id || null,
-      action: 'PROJECT_ROLE_ASSIGNED',
-      entity_type: 'project_memberships',
-      entity_id: data.id,
-      new_state: { project_id: projectId, member_id: validated.member_id, role: validated.role },
-    }]);
+    await adminClient.from('audit_logs').insert([
+      {
+        actor_id: currentMember.id,
+        action: 'PROJECT_ROLE_ASSIGNED',
+        entity_type: 'project_memberships',
+        entity_id: data.id,
+        new_state: { project_id: projectId, member_id: validated.member_id, role: validated.role },
+      },
+    ]);
 
     return NextResponse.json({ success: true, data }, { status: 200 });
   } catch (err: unknown) {

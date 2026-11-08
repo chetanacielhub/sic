@@ -5,12 +5,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireActiveMember } from '@/lib/auth/session';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { member, errorResponse } = await requireActiveMember();
+    if (errorResponse || !member) return errorResponse!;
+
     const { id: sessionId } = await params;
     const { searchParams } = new URL(request.url);
     const filterGroupId = searchParams.get('group_id');

@@ -1,7 +1,8 @@
+import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Member, MemberRegistration, OrgRole, RegistrationStatus } from '@/lib/types/sic';
-import { getRegistrations, getStoredMembers, hydrateStoreFromAuth } from '@/lib/academic/store';
+import { Member, MemberRegistration, RegistrationStatus } from '@/lib/types/sic';
+import { getRegistrations, getStoredMembers } from '@/lib/academic/store';
 import { getAssociateAdminScope } from './rbac';
 
 export const SUPER_ADMIN_FALLBACK_MEMBER_ID = 'a0000000-0000-0000-0000-000000000000';
@@ -37,8 +38,22 @@ export async function getSessionUser() {
 }
 
 /**
- * Resolves the authenticated user to their approved SIC Member profile.
- * Automatically provisions/elevates configured SUPER_ADMIN_EMAILS (such as chetana.cielhub@gmail.com).
+ * Internal helper to obtain the authoritative DB client for session reads.
+ * Uses the Service Role client when configured, otherwise uses the RLS-protected server client.
+ */
+async function getSessionReadClient() {
+  try {
+    return { db: createAdminClient(), isAdminClient: true };
+  } catch {
+    return { db: await createClient(), isAdminClient: false };
+  }
+}
+
+/**
+ * Resolves the authenticated user to their SIC Member profile from PostgreSQL.
+ * - Returns null if the user has no member record or has been removed (status === 'INACTIVE').
+ * - Returns the member with status === 'SUSPENDED' if banned, so callers can block and redirect.
+ * - Automatically provisions/elevates configured SUPER_ADMIN_EMAILS.
  */
 export async function getCurrentMember(
   providedUser?: { id: string; email?: string; user_metadata?: Record<string, unknown> } | null
@@ -46,12 +61,11 @@ export async function getCurrentMember(
   const user = providedUser || (await getSessionUser());
   if (!user) return null;
 
-  const supabase = await createClient();
-  const adminClient = createAdminClient();
+  const { db, isAdminClient } = await getSessionReadClient();
   const isEnvSuperAdmin = isConfiguredSuperAdminEmail(user.email);
 
-  // Try matching via auth_user_id (using authenticated client first so RLS auth.uid() is populated)
-  const { data: byAuth } = await supabase
+  // 1. Match via auth_user_id in PostgreSQL members table
+  const { data: byAuth } = await db
     .from('members')
     .select('*, college:colleges(*), course:courses(*), academic_year:academic_years(*), division:divisions(*)')
     .eq('auth_user_id', user.id)
@@ -59,25 +73,33 @@ export async function getCurrentMember(
 
   if (byAuth) {
     if (isEnvSuperAdmin && (byAuth.org_role !== 'SUPER_ADMIN' || byAuth.status !== 'ACTIVE')) {
-      await adminClient
-        .from('members')
-        .update({ org_role: 'SUPER_ADMIN', status: 'ACTIVE' })
-        .eq('id', byAuth.id);
+      if (isAdminClient) {
+        await db
+          .from('members')
+          .update({ org_role: 'SUPER_ADMIN', status: 'ACTIVE' })
+          .eq('id', byAuth.id);
+      }
       return { ...byAuth, org_role: 'SUPER_ADMIN', status: 'ACTIVE' } as Member;
+    }
+    if (byAuth.status === 'INACTIVE') {
+      return null;
     }
     return byAuth as Member;
   }
 
-  // Fallback matching by email (for pre-existing seeded accounts)
+  // 2. Match by email (for invited or pre-seeded PostgreSQL member accounts)
   if (user.email) {
-    const { data: byEmail } = await supabase
+    const { data: byEmail } = await db
       .from('members')
       .select('*, college:colleges(*), course:courses(*), academic_year:academic_years(*), division:divisions(*)')
       .ilike('email', user.email)
       .maybeSingle();
 
     if (byEmail) {
-      // Auto-link auth_user_id and sync avatar for future quick lookups
+      if (!isEnvSuperAdmin && byEmail.status === 'INACTIVE') {
+        return null;
+      }
+
       const avatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture;
       const updatePayload: Record<string, unknown> = { auth_user_id: user.id };
       if (!byEmail.avatar_url && avatarUrl) {
@@ -87,10 +109,12 @@ export async function getCurrentMember(
         updatePayload.org_role = 'SUPER_ADMIN';
         updatePayload.status = 'ACTIVE';
       }
-      await adminClient
-        .from('members')
-        .update(updatePayload)
-        .eq('id', byEmail.id);
+      if (isAdminClient) {
+        await db
+          .from('members')
+          .update(updatePayload)
+          .eq('id', byEmail.id);
+      }
 
       return {
         ...byEmail,
@@ -102,7 +126,7 @@ export async function getCurrentMember(
     }
   }
 
-  // Auto-provision configured Super Admin email (e.g. chetana.cielhub@gmail.com)
+  // 3. Auto-provision configured Super Admin email (e.g. chetana.cielhub@gmail.com)
   if (isEnvSuperAdmin && user.email) {
     const fullName =
       (user.user_metadata?.full_name as string) ||
@@ -131,110 +155,42 @@ export async function getCurrentMember(
       updated_at: nowIso,
     };
 
-    try {
-      const { data: inserted } = await adminClient
-        .from('members')
-        .upsert(newAdminPayload, { onConflict: 'email' })
-        .select('*, college:colleges(*), course:courses(*), academic_year:academic_years(*), division:divisions(*)')
-        .maybeSingle();
+    if (isAdminClient) {
+      try {
+        const { data: inserted } = await db
+          .from('members')
+          .upsert(newAdminPayload, { onConflict: 'email' })
+          .select('*, college:colleges(*), course:courses(*), academic_year:academic_years(*), division:divisions(*)')
+          .maybeSingle();
 
-      if (inserted) {
-        return inserted as Member;
+        if (inserted) {
+          return inserted as Member;
+        }
+      } catch {
+        // Fallback to in-memory Super Admin profile if DB table is not migrated yet
       }
-    } catch {
-      // Fallback to in-memory Super Admin profile if DB table is not migrated yet
     }
 
     return newAdminPayload as Member;
   }
 
-  // Fallback: check invited / managed members in store
-  await hydrateStoreFromAuth();
-
-  if (user.user_metadata?.sic_status === 'REMOVED' && !isEnvSuperAdmin) {
-    return null;
-  }
-
+  // 4. Fallback to in-memory store only for local development when DB is unseeded
   if (user.email) {
     const stored = getStoredMembers().find(
-      m => m.email.toLowerCase() === user.email!.toLowerCase() || m.auth_user_id === user.id
+      (m) => m.email.toLowerCase() === user.email!.toLowerCase() || m.auth_user_id === user.id
     );
-    if (stored && (stored.status === 'ACTIVE' || stored.status === 'SUSPENDED')) {
+    if (stored) {
+      if (stored.status === 'INACTIVE') return null;
       stored.auth_user_id = user.id;
       return stored;
     }
   }
 
-  // Fallback: check user_metadata sic_status directly
-  if (
-    user.email &&
-    (user.user_metadata?.sic_status === 'ACTIVE' || user.user_metadata?.sic_status === 'SUSPENDED')
-  ) {
-    const cleanId = user.id.replace(/-/g, '').slice(0, 8).toUpperCase();
-    const nowIso = new Date().toISOString();
-    return {
-      id: user.id,
-      auth_user_id: user.id,
-      member_code: (user.user_metadata?.sic_member_code as string) || `SIC-${cleanId}`,
-      full_name:
-        (user.user_metadata?.full_name as string) ||
-        (user.user_metadata?.name as string) ||
-        user.email.split('@')[0],
-      email: user.email,
-      phone: null,
-      department: (user.user_metadata?.sic_department as string) || 'Innovation & Operations',
-      designation: (user.user_metadata?.sic_designation as string) || 'SIC Member',
-      org_role: (user.user_metadata?.sic_org_role as OrgRole) || 'MEMBER',
-      status: user.user_metadata.sic_status as 'ACTIVE' | 'SUSPENDED',
-      avatar_url:
-        (user.user_metadata?.avatar_url as string) ||
-        (user.user_metadata?.picture as string) ||
-        null,
-      joined_at: nowIso.split('T')[0],
-      created_at: nowIso,
-      updated_at: nowIso,
-    } as Member;
-  }
-
-  // Fallback: check if user has an APPROVED registration in the registration store
-  try {
-    const regs = await getRegistrations({ authUserId: user.id });
-    const approvedReg = regs.find(r => r.status === 'APPROVED');
-    if (approvedReg) {
-      const cleanId = user.id.replace(/-/g, '').slice(0, 8).toUpperCase();
-      return {
-        id: approvedReg.member_id || approvedReg.id,
-        auth_user_id: user.id,
-        member_code: `SIC-${cleanId}`,
-        full_name: approvedReg.full_name,
-        email: approvedReg.email,
-        phone: null,
-        department: approvedReg.course?.name || 'Innovation & Operations',
-        designation: 'SIC Member',
-        org_role: 'MEMBER',
-        status: 'ACTIVE',
-        avatar_url: approvedReg.avatar_url || null,
-        college_id: approvedReg.college_id,
-        course_id: approvedReg.course_id,
-        academic_year_id: approvedReg.academic_year_id,
-        division_id: approvedReg.division_id,
-        roll_number: approvedReg.roll_number,
-        college: approvedReg.college,
-        course: approvedReg.course,
-        academic_year: approvedReg.academic_year,
-        division: approvedReg.division,
-        joined_at: approvedReg.reviewed_at || approvedReg.created_at,
-        created_at: approvedReg.created_at,
-        updated_at: approvedReg.updated_at,
-      } as Member;
-    }
-  } catch {}
-
   return null;
 }
 
 /**
- * Retrieves the registration submission for the authenticated user.
+ * Retrieves the registration submission for the authenticated user from PostgreSQL.
  */
 export async function getCurrentUserRegistration(userId?: string): Promise<MemberRegistration | null> {
   const sessionUser = await getSessionUser();
@@ -242,8 +198,8 @@ export async function getCurrentUserRegistration(userId?: string): Promise<Membe
   if (!effectiveUserId) return null;
 
   try {
-    const adminClient = createAdminClient();
-    const { data: registration, error } = await adminClient
+    const { db } = await getSessionReadClient();
+    const { data: registration, error } = await db
       .from('member_registrations')
       .select(`
         *,
@@ -254,6 +210,8 @@ export async function getCurrentUserRegistration(userId?: string): Promise<Membe
         requested_groups:registration_groups(*, group:groups(*))
       `)
       .eq('auth_user_id', effectiveUserId)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (!error && registration) return registration as MemberRegistration;
@@ -262,11 +220,103 @@ export async function getCurrentUserRegistration(userId?: string): Promise<Membe
   const storeRegs = await getRegistrations({ authUserId: effectiveUserId });
   if (storeRegs[0]) return storeRegs[0];
 
-  if (sessionUser?.user_metadata?.sic_registration) {
-    return sessionUser.user_metadata.sic_registration as MemberRegistration;
+  return null;
+}
+
+/**
+ * Enforces that the request is from an authenticated, ACTIVE SIC member.
+ * Rejects unauthenticated, unapproved, removed (INACTIVE), or banned (SUSPENDED) users.
+ */
+export async function requireActiveMember(): Promise<{
+  member: Member | null;
+  errorResponse: NextResponse | null;
+}> {
+  const user = await getSessionUser();
+  if (!user) {
+    return {
+      member: null,
+      errorResponse: NextResponse.json(
+        { error: 'Authentication required. Please sign in.' },
+        { status: 401 }
+      ),
+    };
   }
 
-  return null;
+  const member = await getCurrentMember(user);
+  if (!member) {
+    return {
+      member: null,
+      errorResponse: NextResponse.json(
+        { error: 'Access denied. An approved SIC membership is required.' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  if (member.status === 'SUSPENDED') {
+    return {
+      member: null,
+      errorResponse: NextResponse.json(
+        { error: 'Your SIC membership has been suspended by an administrator.' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  if (member.status !== 'ACTIVE') {
+    return {
+      member: null,
+      errorResponse: NextResponse.json(
+        { error: 'Your SIC membership is not active.' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return { member, errorResponse: null };
+}
+
+/**
+ * Enforces that the request is from an authenticated, ACTIVE SIC Administrator
+ * (SUPER_ADMIN, SIC_DIRECTOR, SIC_ADMIN, or authorized ASSOCIATE_ADMIN).
+ */
+export async function requireAdminMember(): Promise<{
+  member: Member | null;
+  scope: { isAuthorized: boolean; isSuperAdmin: boolean; collegeIds: string[] } | null;
+  errorResponse: NextResponse | null;
+}> {
+  const { member, errorResponse } = await requireActiveMember();
+  if (errorResponse || !member) {
+    return { member: null, scope: null, errorResponse };
+  }
+
+  const scope = await getAssociateAdminScope(member.id);
+  const isRoleAdmin = ['SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 'ASSOCIATE_ADMIN'].includes(
+    member.org_role
+  );
+
+  if (!scope.isAuthorized && !isRoleAdmin) {
+    return {
+      member: null,
+      scope: null,
+      errorResponse: NextResponse.json(
+        { error: 'Forbidden: Only authorized SIC Administrators can perform this action.' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return {
+    member,
+    scope: {
+      isAuthorized: true,
+      isSuperAdmin:
+        scope.isSuperAdmin ||
+        ['SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN'].includes(member.org_role),
+      collegeIds: scope.collegeIds,
+    },
+    errorResponse: null,
+  };
 }
 
 export interface UnifiedAuthContext {
@@ -304,14 +354,14 @@ export async function getUnifiedAuthContext(): Promise<UnifiedAuthContext> {
     };
   }
 
-  const member = await getCurrentMember();
+  const member = await getCurrentMember(user);
   const registration = !member ? await getCurrentUserRegistration(user.id) : null;
 
   let isAssociateAdmin = false;
   let isSuperAdmin = false;
   let collegeIds: string[] = [];
 
-  if (member) {
+  if (member && member.status === 'ACTIVE') {
     const scope = await getAssociateAdminScope(member.id);
     isAssociateAdmin = scope.isAuthorized;
     isSuperAdmin = scope.isSuperAdmin;
@@ -334,5 +384,3 @@ export async function getUnifiedAuthContext(): Promise<UnifiedAuthContext> {
     collegeIds,
   };
 }
-
-

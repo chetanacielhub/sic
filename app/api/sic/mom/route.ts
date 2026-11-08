@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireActiveMember } from '@/lib/auth/session';
+import { getAssociateAdminScope } from '@/lib/auth/rbac';
 import { z } from 'zod';
 
 const ActionItemInputSchema = z.object({
@@ -29,6 +31,9 @@ const UpsertMoMSchema = z.object({
 
 export async function GET(request: NextRequest) {
   try {
+    const { member, errorResponse } = await requireActiveMember();
+    if (errorResponse || !member) return errorResponse!;
+
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('session_id');
 
@@ -66,10 +71,34 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const { member: currentMember, errorResponse } = await requireActiveMember();
+    if (errorResponse || !currentMember) return errorResponse!;
+
     const body = await request.json();
     const validated = UpsertMoMSchema.parse(body);
 
     const adminClient = createAdminClient();
+    const scope = await getAssociateAdminScope(currentMember.id);
+    const isAdminOrOps =
+      scope.isAuthorized ||
+      ['SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 'ASSOCIATE_ADMIN', 'OPERATIONS_MANAGER'].includes(
+        currentMember.org_role
+      );
+
+    if (!isAdminOrOps) {
+      const [{ data: sessionRow }, { data: leadRows }] = await Promise.all([
+        adminClient.from('sessions').select('host_id').eq('id', validated.session_id).maybeSingle(),
+        adminClient.from('group_leads').select('group_id').eq('member_id', currentMember.id).eq('is_active', true),
+      ]);
+      const isHost = sessionRow?.host_id === currentMember.id;
+      const isLead = Boolean(leadRows && leadRows.length > 0);
+      if (!isHost && !isLead) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: Only Session Hosts, Group Leads, or Administrators can manage Meeting Minutes.' },
+          { status: 403 }
+        );
+      }
+    }
 
     // 1. Upsert Meeting Minutes
     const { data: mom, error: momErr } = await adminClient

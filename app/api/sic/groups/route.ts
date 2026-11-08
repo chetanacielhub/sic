@@ -6,8 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getGroups, addGroup, updateGroupRoster, deleteGroup } from '@/lib/academic/store';
-import { getCurrentMember } from '@/lib/auth/session';
-import { getAssociateAdminScope } from '@/lib/auth/rbac';
+import { getCurrentMember, getSessionUser, requireAdminMember } from '@/lib/auth/session';
 import { z } from 'zod';
 
 const LeaderAssignmentSchema = z.object({
@@ -34,20 +33,24 @@ const UpdateGroupRosterSchema = z.object({
   member_ids: z.array(z.string().min(1)),
 });
 
-async function verifyAdminPermission(): Promise<boolean> {
-  const currentMember = await getCurrentMember();
-  if (!currentMember) return false;
-  const scope = await getAssociateAdminScope(currentMember.id);
-  return (
-    scope.isAuthorized ||
-    currentMember.org_role === 'SUPER_ADMIN' ||
-    currentMember.org_role === 'SIC_DIRECTOR' ||
-    currentMember.org_role === 'SIC_ADMIN'
-  );
-}
-
 export async function GET() {
   try {
+    const user = await getSessionUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const member = await getCurrentMember(user);
+    if (member?.status === 'SUSPENDED') {
+      return NextResponse.json(
+        { success: false, error: 'Your SIC membership is suspended.' },
+        { status: 403 }
+      );
+    }
+
     const groups = await getGroups();
     return NextResponse.json({ success: true, data: groups });
   } catch (err: unknown) {
@@ -58,13 +61,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const isAdmin = await verifyAdminPermission();
-    if (!isAdmin) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized: Administrator privileges required to create groups.' },
-        { status: 403 }
-      );
-    }
+    const { member: admin, errorResponse } = await requireAdminMember();
+    if (errorResponse || !admin) return errorResponse!;
 
     const body = await request.json();
     const validated = CreateGroupSchema.parse(body);
@@ -82,13 +80,8 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const isAdmin = await verifyAdminPermission();
-    if (!isAdmin) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized: Administrator privileges required to manage group leaders and roster.' },
-        { status: 403 }
-      );
-    }
+    const { member: admin, errorResponse } = await requireAdminMember();
+    if (errorResponse || !admin) return errorResponse!;
 
     const body = await request.json();
     const validated = UpdateGroupRosterSchema.parse(body);
@@ -110,13 +103,8 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const isAdmin = await verifyAdminPermission();
-    if (!isAdmin) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized: Administrator privileges required to delete groups.' },
-        { status: 403 }
-      );
-    }
+    const { member: admin, errorResponse } = await requireAdminMember();
+    if (errorResponse || !admin) return errorResponse!;
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');

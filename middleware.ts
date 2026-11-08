@@ -127,12 +127,7 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/api/')) {
     const isPublicApi =
       pathname.startsWith('/api/auth') ||
-      pathname.startsWith('/api/sic/academic') ||
-      pathname === '/api/sic/attendance/check-in' ||
-      pathname === '/api/sic/members' ||
-      pathname === '/api/sic/groups' ||
-      pathname.endsWith('/qr') ||
-      pathname.endsWith('/attendance');
+      (pathname.startsWith('/api/sic/academic') && request.method === 'GET');
 
     if (!user && !isPublicApi) {
       return NextResponse.json(
@@ -158,10 +153,7 @@ export async function middleware(request: NextRequest) {
     pathname === '/associate-admin-login' ||
     pathname === '/forgot-password' ||
     pathname === '/reset-password' ||
-    pathname.startsWith('/auth/callback') ||
-    pathname === '/sic/check-in' ||
-    pathname.includes('/qr') ||
-    pathname.includes('/live');
+    pathname.startsWith('/auth/callback');
 
   // If unauthenticated and accessing a protected UI page
   if (!user && !isPublicPage) {
@@ -174,6 +166,31 @@ export async function middleware(request: NextRequest) {
     const redirectUrl = new URL('/login', publicOrigin);
     redirectUrl.searchParams.set('redirectTo', pathname);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // 8. Enforce suspended/banned member block on protected SIC and dashboard routes
+  if (
+    user &&
+    (pathname.startsWith('/sic') ||
+      pathname.startsWith('/dashboard') ||
+      pathname.startsWith('/associate-admin'))
+  ) {
+    try {
+      const { data: memberRow } = await supabase
+        .from('members')
+        .select('status')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+
+      if (memberRow?.status === 'SUSPENDED') {
+        return NextResponse.redirect(
+          new URL('/registration-status?status=SUSPENDED', publicOrigin)
+        );
+      }
+      if (memberRow?.status === 'INACTIVE') {
+        return NextResponse.redirect(new URL('/registration-status', publicOrigin));
+      }
+    } catch {}
   }
 
   // If authenticated user tries to access /login or /forgot-password

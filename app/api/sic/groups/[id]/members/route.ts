@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireActiveMember } from '@/lib/auth/session';
+import { getAssociateAdminScope } from '@/lib/auth/rbac';
 import { z } from 'zod';
 
 const AddMemberSchema = z.object({
@@ -12,11 +14,46 @@ const AddMemberSchema = z.object({
   added_by: z.string().min(1).optional().nullable(),
 });
 
+async function requireGroupManager(groupId: string) {
+  const { member, errorResponse } = await requireActiveMember();
+  if (errorResponse || !member) return { member: null, errorResponse };
+
+  const scope = await getAssociateAdminScope(member.id);
+  const isAdmin =
+    scope.isAuthorized ||
+    ['SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 'ASSOCIATE_ADMIN'].includes(member.org_role);
+  if (isAdmin) return { member, errorResponse: null };
+
+  const adminClient = createAdminClient();
+  const { data: leadRow } = await adminClient
+    .from('group_leads')
+    .select('id')
+    .eq('group_id', groupId)
+    .eq('member_id', member.id)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!leadRow) {
+    return {
+      member: null,
+      errorResponse: NextResponse.json(
+        { success: false, error: 'Forbidden: Only Group Leads or Administrators can modify group membership.' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return { member, errorResponse: null };
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { member, errorResponse } = await requireActiveMember();
+    if (errorResponse || !member) return errorResponse!;
+
     const { id: groupId } = await params;
     const adminClient = createAdminClient();
 
@@ -50,6 +87,9 @@ export async function POST(
 ) {
   try {
     const { id: groupId } = await params;
+    const { member: actor, errorResponse } = await requireGroupManager(groupId);
+    if (errorResponse || !actor) return errorResponse!;
+
     const body = await request.json();
     const validated = AddMemberSchema.parse(body);
 
@@ -65,12 +105,20 @@ export async function POST(
 
     if (existing) {
       if (existing.status === 'ACTIVE') {
-        return NextResponse.json({ success: false, error: 'Member is already an active member of this group.' }, { status: 409 });
+        return NextResponse.json(
+          { success: false, error: 'Member is already an active member of this group.' },
+          { status: 409 }
+        );
       }
       // Re-activate previously left membership
       const { data: updated, error } = await adminClient
         .from('group_memberships')
-        .update({ status: 'ACTIVE', ended_at: null, joined_at: new Date().toISOString() })
+        .update({
+          status: 'ACTIVE',
+          ended_at: null,
+          added_by: actor.id,
+          joined_at: new Date().toISOString(),
+        })
         .eq('id', existing.id)
         .select()
         .single();
@@ -82,12 +130,14 @@ export async function POST(
     // Insert new membership
     const { data, error } = await adminClient
       .from('group_memberships')
-      .insert([{
-        group_id: groupId,
-        member_id: validated.member_id,
-        added_by: validated.added_by,
-        status: 'ACTIVE',
-      }])
+      .insert([
+        {
+          group_id: groupId,
+          member_id: validated.member_id,
+          added_by: actor.id,
+          status: 'ACTIVE',
+        },
+      ])
       .select()
       .single();
 
@@ -111,11 +161,17 @@ export async function DELETE(
 ) {
   try {
     const { id: groupId } = await params;
+    const { member: actor, errorResponse } = await requireGroupManager(groupId);
+    if (errorResponse || !actor) return errorResponse!;
+
     const { searchParams } = new URL(request.url);
     const memberId = searchParams.get('member_id');
 
     if (!memberId) {
-      return NextResponse.json({ success: false, error: 'member_id query param is required' }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'member_id query param is required' },
+        { status: 400 }
+      );
     }
 
     const adminClient = createAdminClient();

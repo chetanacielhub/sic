@@ -5,8 +5,10 @@
 // ============================================================================
 
 import React from 'react';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { getCurrentMember } from '@/lib/auth/session';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { getCurrentMember, getSessionUser, getCurrentUserRegistration } from '@/lib/auth/session';
 import { getAssociateAdminScope } from '@/lib/auth/rbac';
 import { getRegistrations, getStoredMembers, getRemovedMemberKeys, getGroups } from '@/lib/academic/store';
 import { MembersDirectoryClient, DirectoryMemberItem } from '@/components/sic/members-directory-client';
@@ -14,29 +16,48 @@ import { MembersDirectoryClient, DirectoryMemberItem } from '@/components/sic/me
 export const dynamic = 'force-dynamic';
 
 export default async function MembersPage() {
-  const supabase = await createClient();
-  const currentMember = await getCurrentMember();
-
-  let isAdmin = false;
-  let isSuperAdmin = false;
-  let scopedCollegeIds: string[] = [];
-
-  if (currentMember) {
-    const scope = await getAssociateAdminScope(currentMember.id);
-    isAdmin =
-      scope.isAuthorized ||
-      currentMember.org_role === 'SUPER_ADMIN' ||
-      currentMember.org_role === 'SIC_DIRECTOR' ||
-      currentMember.org_role === 'SIC_ADMIN';
-    isSuperAdmin =
-      scope.isSuperAdmin ||
-      currentMember.org_role === 'SUPER_ADMIN' ||
-      currentMember.org_role === 'SIC_DIRECTOR';
-    scopedCollegeIds = scope.collegeIds;
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) {
+    redirect('/login?next=/sic/members');
   }
 
-  // 1. Fetch members from Supabase using authenticated client
-  const { data: dbMembers } = await supabase
+  const currentMember = await getCurrentMember(sessionUser);
+  if (!currentMember) {
+    const registration = await getCurrentUserRegistration(sessionUser.id);
+    if (!registration) {
+      redirect('/register');
+    }
+    if (registration.status === 'NEEDS_CORRECTION') {
+      redirect('/register?correction=true');
+    }
+    redirect('/registration-status');
+  }
+
+  if (currentMember.status === 'SUSPENDED') {
+    redirect('/registration-status?status=SUSPENDED');
+  }
+
+  const scope = await getAssociateAdminScope(currentMember.id);
+  const isAdmin =
+    scope.isAuthorized ||
+    currentMember.org_role === 'SUPER_ADMIN' ||
+    currentMember.org_role === 'SIC_DIRECTOR' ||
+    currentMember.org_role === 'SIC_ADMIN';
+  const isSuperAdmin =
+    scope.isSuperAdmin ||
+    currentMember.org_role === 'SUPER_ADMIN' ||
+    currentMember.org_role === 'SIC_DIRECTOR';
+  const scopedCollegeIds = scope.collegeIds;
+
+  // 1. Fetch members from PostgreSQL using authoritative client
+  let dbClient;
+  try {
+    dbClient = createAdminClient();
+  } catch {
+    dbClient = await createClient();
+  }
+
+  const { data: dbMembers } = await dbClient
     .from('members')
     .select(`
       *,
@@ -53,21 +74,25 @@ export default async function MembersPage() {
 
   // 2. Fetch registrations and groups
   const [allRegistrations, availableGroups] = await Promise.all([
-    getRegistrations({
-      collegeIds: !isSuperAdmin && scopedCollegeIds.length > 0 ? scopedCollegeIds : undefined,
-    }),
+    isAdmin
+      ? getRegistrations({
+          collegeIds: !isSuperAdmin && scopedCollegeIds.length > 0 ? scopedCollegeIds : undefined,
+        })
+      : Promise.resolve([]),
     getGroups(),
   ]);
 
-  // 3. Build unified directory member list (DB members + Stored/Invited members + Registrations)
+  // 3. Build unified directory member list (DB members + Stored/Invited members + Registrations for Admins)
   const directoryMap = new Map<string, DirectoryMemberItem>();
   const removedKeys = getRemovedMemberKeys();
 
   for (const m of dbMembers || []) {
-    // Removed members are retained in the database for historical attendance/audit integrity,
-    // but are excluded from the active SIC directory.
+    // Removed members are retained in PostgreSQL for historical attendance/audit integrity,
+    // but are excluded from the active SIC directory (unless Admin is viewing or restoring).
     if (m.status === 'INACTIVE') continue;
+    if (!isAdmin && m.status !== 'ACTIVE') continue;
     if (removedKeys.has(m.id.toLowerCase()) || removedKeys.has(m.email.toLowerCase())) continue;
+
     const activeGroups = ((m.group_memberships || []) as Array<{
       status: string;
       group: { id?: string; code: string; name: string } | Array<{ id?: string; code: string; name: string }>;
@@ -84,71 +109,76 @@ export default async function MembersPage() {
 
   // Merge invited/managed members from store
   for (const sm of getStoredMembers()) {
+    if (sm.status === 'INACTIVE') continue;
+    if (!isAdmin && sm.status !== 'ACTIVE') continue;
     if (removedKeys.has(sm.id.toLowerCase()) || removedKeys.has(sm.email.toLowerCase())) continue;
-    directoryMap.set(sm.email.toLowerCase(), {
-      ...sm,
-      activeGroups: sm.activeGroups || [],
-    });
-  }
-
-  // Ensure all registrations in the store are also represented in the directory so Admin can Approve, Ban, or Remove directly
-  for (const reg of allRegistrations) {
-    // Rejected/removed registrations remain available in the Approvals history, not the Directory.
-    if (reg.status === 'REJECTED') continue;
-    if (
-      removedKeys.has(reg.id.toLowerCase()) ||
-      (reg.member_id && removedKeys.has(reg.member_id.toLowerCase())) ||
-      removedKeys.has(reg.email.toLowerCase())
-    ) {
-      continue;
-    }
-
-    if (!directoryMap.has(reg.email.toLowerCase())) {
-      const cleanCode = reg.auth_user_id.replace(/-/g, '').slice(0, 8).toUpperCase();
-      const approvedGroups = (reg.requested_groups || [])
-        .filter(rg => rg.request_type === 'MEMBER' && (rg.status === 'APPROVED' || reg.status === 'PENDING'))
-        .map(rg => ({
-          id: rg.group_id,
-          code: rg.group?.code || 'SIC',
-          name: rg.group?.name || 'SIC Group',
-        }));
-
-      directoryMap.set(reg.email.toLowerCase(), {
-        id: reg.member_id || reg.id,
-        auth_user_id: reg.auth_user_id,
-        member_code: `SIC-${cleanCode}`,
-        full_name: reg.full_name,
-        email: reg.email,
-        phone: null,
-        department: reg.course?.name || 'Innovation & Operations',
-        designation: 'SIC Member',
-        org_role: 'MEMBER',
-        status:
-          reg.status === 'SUSPENDED'
-            ? 'SUSPENDED'
-            : reg.status === 'APPROVED'
-            ? 'ACTIVE'
-            : 'INACTIVE',
-        avatar_url: reg.avatar_url || null,
-        college_id: reg.college_id,
-        course_id: reg.course_id,
-        academic_year_id: reg.academic_year_id,
-        division_id: reg.division_id,
-        roll_number: reg.roll_number,
-        registration_id: reg.id,
-        college: reg.college,
-        course: reg.course,
-        academic_year: reg.academic_year,
-        division: reg.division,
-        joined_at: reg.reviewed_at || reg.created_at,
-        created_at: reg.created_at,
-        updated_at: reg.updated_at,
-        activeGroups: approvedGroups,
+    if (!directoryMap.has(sm.email.toLowerCase())) {
+      directoryMap.set(sm.email.toLowerCase(), {
+        ...sm,
+        activeGroups: sm.activeGroups || [],
       });
     }
   }
 
-  // Ensure the current admin is also visible if not yet in DB and not removed
+  // For Admins, ensure pending/approved/suspended registrations are also represented in the directory so Admin can Approve, Ban, or Remove directly
+  if (isAdmin) {
+    for (const reg of allRegistrations) {
+      if (reg.status === 'REJECTED') continue;
+      if (
+        removedKeys.has(reg.id.toLowerCase()) ||
+        (reg.member_id && removedKeys.has(reg.member_id.toLowerCase())) ||
+        removedKeys.has(reg.email.toLowerCase())
+      ) {
+        continue;
+      }
+
+      if (!directoryMap.has(reg.email.toLowerCase())) {
+        const cleanCode = reg.auth_user_id.replace(/-/g, '').slice(0, 8).toUpperCase();
+        const approvedGroups = (reg.requested_groups || [])
+          .filter(rg => rg.request_type === 'MEMBER' && (rg.status === 'APPROVED' || rg.status === 'PENDING'))
+          .map(rg => ({
+            id: rg.group_id,
+            code: rg.group?.code || 'SIC',
+            name: rg.group?.name || 'SIC Group',
+          }));
+
+        directoryMap.set(reg.email.toLowerCase(), {
+          id: reg.member_id || reg.id,
+          auth_user_id: reg.auth_user_id,
+          member_code: `SIC-${cleanCode}`,
+          full_name: reg.full_name,
+          email: reg.email,
+          phone: null,
+          department: reg.course?.name || 'Innovation & Operations',
+          designation: 'SIC Member',
+          org_role: 'MEMBER',
+          status:
+            reg.status === 'SUSPENDED'
+              ? 'SUSPENDED'
+              : reg.status === 'APPROVED'
+              ? 'ACTIVE'
+              : 'INACTIVE',
+          avatar_url: reg.avatar_url || null,
+          college_id: reg.college_id,
+          course_id: reg.course_id,
+          academic_year_id: reg.academic_year_id,
+          division_id: reg.division_id,
+          roll_number: reg.roll_number,
+          registration_id: reg.id,
+          college: reg.college,
+          course: reg.course,
+          academic_year: reg.academic_year,
+          division: reg.division,
+          joined_at: reg.reviewed_at || reg.created_at,
+          created_at: reg.created_at,
+          updated_at: reg.updated_at,
+          activeGroups: approvedGroups,
+        });
+      }
+    }
+  }
+
+  // Ensure the current active member is visible if not yet in DB and not removed
   if (
     currentMember &&
     !directoryMap.has(currentMember.email.toLowerCase()) &&

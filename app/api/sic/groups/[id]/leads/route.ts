@@ -5,6 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdminMember } from '@/lib/auth/session';
+import { recordAdminAuditLog } from '@/lib/academic/store';
 import { z } from 'zod';
 
 const AssignLeadSchema = z.object({
@@ -19,6 +21,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { member: admin, errorResponse } = await requireAdminMember();
+    if (errorResponse || !admin) return errorResponse!;
+
     const { id: groupId } = await params;
     const body = await request.json();
     const validated = AssignLeadSchema.parse(body);
@@ -28,14 +33,17 @@ export async function POST(
     // Upsert lead assignment
     const { data, error } = await adminClient
       .from('group_leads')
-      .upsert({
-        group_id: groupId,
-        member_id: validated.member_id,
-        lead_type: validated.lead_type,
-        assigned_by: validated.assigned_by,
-        is_active: validated.is_active,
-        assigned_at: new Date().toISOString(),
-      }, { onConflict: 'group_id,member_id' })
+      .upsert(
+        {
+          group_id: groupId,
+          member_id: validated.member_id,
+          lead_type: validated.lead_type,
+          assigned_by: admin.id,
+          is_active: validated.is_active,
+          assigned_at: new Date().toISOString(),
+        },
+        { onConflict: 'group_id,member_id' }
+      )
       .select(`
         *,
         member:members(*)
@@ -45,6 +53,20 @@ export async function POST(
     if (error) {
       return NextResponse.json({ success: false, error: error.message }, { status: 400 });
     }
+
+    await recordAdminAuditLog(adminClient, {
+      actorId: admin.id,
+      targetMemberId: validated.member_id,
+      action: 'GROUP_LEAD_ASSIGNED',
+      entityType: 'MEMBER',
+      entityId: validated.member_id,
+      newState: {
+        group_id: groupId,
+        member_id: validated.member_id,
+        lead_type: validated.lead_type,
+        is_active: validated.is_active,
+      },
+    });
 
     return NextResponse.json({ success: true, data }, { status: 200 });
   } catch (err: unknown) {

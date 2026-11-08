@@ -1,7 +1,6 @@
--- ============================================================================
+﻿-- ============================================================================
 -- SIC UNIFIED ATTENDANCE & OPERATIONS MANAGEMENT SYSTEM
--- CONSOLIDATED DATABASE SCHEMA & RBAC MIGRATION SCRIPT
--- Target Project: hgnwtuabvbtfgxpwvqdn
+-- CONSOLIDATED DATABASE SCHEMA, ACADEMIC HIERARCHY, RBAC & AUDIT MIGRATION
 -- ============================================================================
 
 -- ============================================================================
@@ -844,4 +843,671 @@ CREATE POLICY "Project Admins manage project memberships" ON project_memberships
 CREATE POLICY "Super Admins view and manage super admins" ON platform_super_admins
     FOR ALL USING (is_platform_super_admin());
 
+
+-- ============================================================================
+-- SIC Unified Attendance & Operations Management System
+-- Migration: 20261027000000_sic_member_registration_and_academic_structure.sql
+-- Description: Institutional Academic Hierarchy (Colleges, Courses, Years, Divisions),
+--              Associate Admin Scoping, Member Registration Flow & Audit Logging
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- 1. Academic Structure: Colleges
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS colleges (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL UNIQUE,
+    code VARCHAR(32) NOT NULL UNIQUE,
+    description TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_colleges_code ON colleges(code);
+CREATE INDEX IF NOT EXISTS idx_colleges_active ON colleges(is_active);
+
+-- ----------------------------------------------------------------------------
+-- 2. Academic Structure: Courses (Scoped to College)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS courses (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    college_id UUID NOT NULL REFERENCES colleges(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(32) NOT NULL,
+    duration_years INTEGER NOT NULL DEFAULT 3,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT unique_college_course UNIQUE (college_id, code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_courses_college ON courses(college_id);
+CREATE INDEX IF NOT EXISTS idx_courses_active ON courses(is_active);
+
+-- ----------------------------------------------------------------------------
+-- 3. Academic Structure: Academic Years (Scoped to Course)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS academic_years (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    year_name VARCHAR(64) NOT NULL, -- e.g. 'First Year', 'Second Year', 'Third Year'
+    year_number INTEGER NOT NULL CHECK (year_number > 0 AND year_number <= 6),
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT unique_course_year UNIQUE (course_id, year_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_academic_years_course ON academic_years(course_id);
+
+-- ----------------------------------------------------------------------------
+-- 4. Academic Structure: Divisions (Scoped to Academic Year)
+-- Note: Division counts are derived directly from actual division records
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS divisions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE CASCADE,
+    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    college_id UUID NOT NULL REFERENCES colleges(id) ON DELETE CASCADE,
+    name VARCHAR(32) NOT NULL, -- e.g. 'Division A', 'Division B'
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT unique_year_division UNIQUE (academic_year_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_divisions_year ON divisions(academic_year_id);
+CREATE INDEX IF NOT EXISTS idx_divisions_course ON divisions(course_id);
+CREATE INDEX IF NOT EXISTS idx_divisions_college ON divisions(college_id);
+
+-- ----------------------------------------------------------------------------
+-- 5. Extend Members Org Role Constraint to Include ASSOCIATE_ADMIN
+-- ----------------------------------------------------------------------------
+ALTER TABLE members DROP CONSTRAINT IF EXISTS check_org_role;
+ALTER TABLE members ADD CONSTRAINT check_org_role CHECK (org_role IN (
+    'SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 
+    'OPERATIONS_MANAGER', 'ATTENDANCE_AUDITOR', 
+    'ASSOCIATE_ADMIN', 'MEMBER'
+));
+
+-- ----------------------------------------------------------------------------
+-- 6. Associate Admin Scoping
+-- Links Associate Admins to one or more Colleges (NULL college_id = all colleges)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS associate_admins (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    member_id UUID NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+    college_id UUID REFERENCES colleges(id) ON DELETE CASCADE,
+    assigned_by UUID REFERENCES members(id) ON DELETE SET NULL,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT unique_associate_admin_scope UNIQUE (member_id, college_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_assoc_admin_member ON associate_admins(member_id);
+CREATE INDEX IF NOT EXISTS idx_assoc_admin_college ON associate_admins(college_id);
+
+-- ----------------------------------------------------------------------------
+-- 7. Member Registrations (Lifecycle: PENDING, NEEDS_CORRECTION, APPROVED, REJECTED, SUSPENDED)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS member_registrations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    auth_user_id UUID NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    avatar_url TEXT,
+    college_id UUID NOT NULL REFERENCES colleges(id) ON DELETE RESTRICT,
+    course_id UUID NOT NULL REFERENCES courses(id) ON DELETE RESTRICT,
+    academic_year_id UUID NOT NULL REFERENCES academic_years(id) ON DELETE RESTRICT,
+    division_id UUID NOT NULL REFERENCES divisions(id) ON DELETE RESTRICT,
+    roll_number VARCHAR(64) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    correction_notes TEXT,
+    rejection_reason TEXT,
+    reviewed_by UUID REFERENCES members(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMPTZ,
+    member_id UUID REFERENCES members(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT check_registration_status CHECK (status IN (
+        'PENDING', 'NEEDS_CORRECTION', 'APPROVED', 'REJECTED', 'SUSPENDED'
+    )),
+    -- Roll numbers are unique within a specific college, course, year, and division
+    CONSTRAINT unique_institutional_roll UNIQUE (college_id, course_id, academic_year_id, division_id, roll_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reg_auth_user ON member_registrations(auth_user_id);
+CREATE INDEX IF NOT EXISTS idx_reg_email ON member_registrations(email);
+CREATE INDEX IF NOT EXISTS idx_reg_college ON member_registrations(college_id);
+CREATE INDEX IF NOT EXISTS idx_reg_status ON member_registrations(status);
+
+-- ----------------------------------------------------------------------------
+-- 8. Multi-Group Registration Requests (Member-Of and Leader-Of)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS registration_groups (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    registration_id UUID NOT NULL REFERENCES member_registrations(id) ON DELETE CASCADE,
+    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+    request_type VARCHAR(32) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    reviewed_by UUID REFERENCES members(id) ON DELETE SET NULL,
+    reviewed_at TIMESTAMPTZ,
+    CONSTRAINT check_req_type CHECK (request_type IN ('MEMBER', 'LEADER')),
+    CONSTRAINT check_req_status CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+    CONSTRAINT unique_reg_group_request UNIQUE (registration_id, group_id, request_type)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reg_groups_reg ON registration_groups(registration_id);
+CREATE INDEX IF NOT EXISTS idx_reg_groups_group ON registration_groups(group_id);
+
+-- ----------------------------------------------------------------------------
+-- 9. Registration Audit Trail
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS registration_audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    registration_id UUID NOT NULL REFERENCES member_registrations(id) ON DELETE CASCADE,
+    action VARCHAR(64) NOT NULL,
+    performed_by UUID REFERENCES members(id) ON DELETE SET NULL,
+    notes TEXT,
+    details JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_reg_audit_reg ON registration_audit_logs(registration_id);
+
+-- ----------------------------------------------------------------------------
+-- 10. Link Members Table to Institutional Coordinates
+-- ----------------------------------------------------------------------------
+ALTER TABLE members ADD COLUMN IF NOT EXISTS college_id UUID REFERENCES colleges(id) ON DELETE SET NULL;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS course_id UUID REFERENCES courses(id) ON DELETE SET NULL;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS academic_year_id UUID REFERENCES academic_years(id) ON DELETE SET NULL;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS division_id UUID REFERENCES divisions(id) ON DELETE SET NULL;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS roll_number VARCHAR(64);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS registration_id UUID REFERENCES member_registrations(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_members_college ON members(college_id);
+
+-- ----------------------------------------------------------------------------
+-- 11. Seed Institutional Data (CIMR & CRKIMR)
+-- ----------------------------------------------------------------------------
+DO $$
+DECLARE
+    v_cimr_id UUID   := 'e1111111-1111-1111-1111-111111111111';
+    v_crkimr_id UUID := 'e3333333-3333-3333-3333-333333333333';
+    
+    v_course_pgdm UUID := 'f1111111-1111-1111-1111-111111111111';
+    v_course_mms UUID  := 'f5555555-5555-5555-5555-555555555555';
+
+    v_year_pgdm_1 UUID := 'c1111111-0001-1111-1111-111111111111';
+    v_year_pgdm_2 UUID := 'c1111111-0002-1111-1111-111111111111';
+
+    v_year_mms_1 UUID  := 'c5555555-0001-1111-1111-111111111111';
+    v_year_mms_2 UUID  := 'c5555555-0002-1111-1111-111111111111';
+BEGIN
+    -- Remove Chetana's Hazarimal Somani College of Commerce & Economics (CHSC) if present
+    DELETE FROM colleges WHERE id = 'e2222222-2222-2222-2222-222222222222' OR code = 'CHSC' OR name ILIKE '%Hazarimal Somani%';
+
+    -- 1. Colleges
+    INSERT INTO colleges (id, name, code, description)
+    VALUES 
+        (v_cimr_id, 'Chetana''s Institute of Management & Research', 'CIMR', 'Postgraduate Business & Innovation Management'),
+        (v_crkimr_id, 'Chetana''s R.K. Institute of Management and Research', 'CRKIMR', 'Postgraduate Management Studies & Research')
+    ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, code = EXCLUDED.code;
+
+    -- 2. Courses
+    INSERT INTO courses (id, college_id, name, code, duration_years)
+    VALUES 
+        (v_course_pgdm, v_cimr_id, 'Post Graduate Diploma in Management (PGDM)', 'PGDM', 2),
+        (v_course_mms, v_crkimr_id, 'Master of Management Studies (MMS)', 'MMS', 2)
+    ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, code = EXCLUDED.code;
+
+    -- 3. Academic Years
+    INSERT INTO academic_years (id, course_id, year_name, year_number)
+    VALUES 
+        (v_year_pgdm_1, v_course_pgdm, 'First Year', 1),
+        (v_year_pgdm_2, v_course_pgdm, 'Second Year', 2),
+        (v_year_mms_1, v_course_mms, 'Year 1', 1),
+        (v_year_mms_2, v_course_mms, 'Year 2', 2)
+    ON CONFLICT (id) DO UPDATE SET year_name = EXCLUDED.year_name, year_number = EXCLUDED.year_number;
+
+    -- 4. Divisions
+    -- PGDM Year 1 (Chetana's Institute of Management & Research)
+    INSERT INTO divisions (academic_year_id, course_id, college_id, name)
+    VALUES 
+        (v_year_pgdm_1, v_course_pgdm, v_cimr_id, 'Division A'),
+        (v_year_pgdm_1, v_course_pgdm, v_cimr_id, 'Division B'),
+        (v_year_pgdm_1, v_course_pgdm, v_cimr_id, 'Division C'),
+        (v_year_pgdm_1, v_course_pgdm, v_cimr_id, 'Division D'),
+        (v_year_pgdm_1, v_course_pgdm, v_cimr_id, 'Division M')
+    ON CONFLICT (academic_year_id, name) DO NOTHING;
+
+    -- PGDM Year 2 (Chetana's Institute of Management & Research)
+    INSERT INTO divisions (academic_year_id, course_id, college_id, name)
+    VALUES 
+        (v_year_pgdm_2, v_course_pgdm, v_cimr_id, 'Division A'),
+        (v_year_pgdm_2, v_course_pgdm, v_cimr_id, 'Division B'),
+        (v_year_pgdm_2, v_course_pgdm, v_cimr_id, 'Division C'),
+        (v_year_pgdm_2, v_course_pgdm, v_cimr_id, 'Division D'),
+        (v_year_pgdm_2, v_course_pgdm, v_cimr_id, 'Division M')
+    ON CONFLICT (academic_year_id, name) DO NOTHING;
+
+    -- MMS Year 1 & Year 2 (Chetana's R.K. Institute of Management and Research)
+    INSERT INTO divisions (academic_year_id, course_id, college_id, name)
+    VALUES 
+        (v_year_mms_1, v_course_mms, v_crkimr_id, 'Division A'),
+        (v_year_mms_1, v_course_mms, v_crkimr_id, 'Division B'),
+        (v_year_mms_2, v_course_mms, v_crkimr_id, 'Division A'),
+        (v_year_mms_2, v_course_mms, v_crkimr_id, 'Division B')
+    ON CONFLICT (academic_year_id, name) DO NOTHING;
+
+    -- 5. Seed Super Admin (chetana.cielhub@gmail.com)
+    INSERT INTO members (
+        id, member_code, full_name, email, department, designation, org_role, status
+    ) VALUES (
+        'a0000000-0000-0000-0000-000000000000',
+        'SIC-ADM-000',
+        'Chetana CIEL Super Admin',
+        'chetana.cielhub@gmail.com',
+        'Executive Board & CIEL Operations',
+        'Platform Super Administrator',
+        'SUPER_ADMIN',
+        'ACTIVE'
+    )
+    ON CONFLICT (email) DO UPDATE SET
+        org_role = 'SUPER_ADMIN',
+        status = 'ACTIVE';
+END $$;
+
+-- ----------------------------------------------------------------------------
+-- 12. Row Level Security Policies
+-- ----------------------------------------------------------------------------
+ALTER TABLE colleges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE academic_years ENABLE ROW LEVEL SECURITY;
+ALTER TABLE divisions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE associate_admins ENABLE ROW LEVEL SECURITY;
+ALTER TABLE member_registrations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE registration_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE registration_audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- Colleges: public/authenticated read; super admin / associate admin write
+CREATE POLICY "Public Read Active Colleges" ON colleges 
+    FOR SELECT USING (is_active = true OR auth.uid() IS NOT NULL);
+
+CREATE POLICY "Admin Manage Colleges" ON colleges 
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM members m 
+            WHERE m.auth_user_id = auth.uid() 
+              AND m.org_role IN ('SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN')
+        )
+    );
+
+-- Courses: public/authenticated read; admin write
+CREATE POLICY "Public Read Courses" ON courses 
+    FOR SELECT USING (is_active = true OR auth.uid() IS NOT NULL);
+
+CREATE POLICY "Admin Manage Courses" ON courses 
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM members m 
+            WHERE m.auth_user_id = auth.uid() 
+              AND m.org_role IN ('SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 'ASSOCIATE_ADMIN')
+        )
+    );
+
+-- Academic Years: public/authenticated read; admin write
+CREATE POLICY "Public Read Academic Years" ON academic_years 
+    FOR SELECT USING (is_active = true OR auth.uid() IS NOT NULL);
+
+CREATE POLICY "Admin Manage Academic Years" ON academic_years 
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM members m 
+            WHERE m.auth_user_id = auth.uid() 
+              AND m.org_role IN ('SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 'ASSOCIATE_ADMIN')
+        )
+    );
+
+-- Divisions: public/authenticated read; admin write
+CREATE POLICY "Public Read Divisions" ON divisions 
+    FOR SELECT USING (is_active = true OR auth.uid() IS NOT NULL);
+
+CREATE POLICY "Admin Manage Divisions" ON divisions 
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM members m 
+            WHERE m.auth_user_id = auth.uid() 
+              AND m.org_role IN ('SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 'ASSOCIATE_ADMIN')
+        )
+    );
+
+-- Associate Admins: visible to admins
+CREATE POLICY "Read Associate Admins" ON associate_admins 
+    FOR SELECT USING (auth.uid() IS NOT NULL);
+
+CREATE POLICY "Super Admin Manage Associate Admins" ON associate_admins 
+    FOR ALL USING (
+        EXISTS (
+            SELECT 1 FROM members m 
+            WHERE m.auth_user_id = auth.uid() 
+              AND m.org_role IN ('SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN')
+        )
+    );
+
+-- Member Registrations RLS
+CREATE POLICY "Users Read Own Registration" ON member_registrations 
+    FOR SELECT USING (
+        auth_user_id = auth.uid() OR 
+        EXISTS (
+            SELECT 1 FROM members m 
+            WHERE m.auth_user_id = auth.uid() 
+              AND m.org_role IN ('SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 'ASSOCIATE_ADMIN')
+        )
+    );
+
+CREATE POLICY "Users Insert Own Registration" ON member_registrations 
+    FOR INSERT WITH CHECK (
+        auth_user_id = auth.uid()
+    );
+
+CREATE POLICY "Users Update Own Pending Registration" ON member_registrations 
+    FOR UPDATE USING (
+        (auth_user_id = auth.uid() AND status IN ('PENDING', 'NEEDS_CORRECTION')) OR
+        EXISTS (
+            SELECT 1 FROM members m 
+            WHERE m.auth_user_id = auth.uid() 
+              AND m.org_role IN ('SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 'ASSOCIATE_ADMIN')
+        )
+    );
+
+-- Registration Groups RLS
+CREATE POLICY "Users Read Own Reg Groups" ON registration_groups 
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM member_registrations mr 
+            WHERE mr.id = registration_groups.registration_id 
+              AND (mr.auth_user_id = auth.uid() OR EXISTS (
+                  SELECT 1 FROM members m 
+                  WHERE m.auth_user_id = auth.uid() 
+                    AND m.org_role IN ('SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 'ASSOCIATE_ADMIN')
+              ))
+        )
+    );
+
+CREATE POLICY "Users Insert Own Reg Groups" ON registration_groups 
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM member_registrations mr 
+            WHERE mr.id = registration_groups.registration_id 
+              AND mr.auth_user_id = auth.uid()
+        )
+    );
+
+CREATE POLICY "Admin Update Reg Groups" ON registration_groups 
+    FOR UPDATE USING (
+        EXISTS (
+            SELECT 1 FROM members m 
+            WHERE m.auth_user_id = auth.uid() 
+              AND m.org_role IN ('SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 'ASSOCIATE_ADMIN')
+        )
+    );
+
+-- Registration Audit Logs RLS
+CREATE POLICY "Admins Read Audit Logs" ON registration_audit_logs 
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM members m 
+            WHERE m.auth_user_id = auth.uid() 
+              AND m.org_role IN ('SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN', 'ASSOCIATE_ADMIN')
+        )
+    );
+
+CREATE POLICY "System Insert Audit Logs" ON registration_audit_logs 
+    FOR INSERT WITH CHECK (true);
+
+-- ============================================================================
+-- 8. STORAGE BUCKET FOR MEMBER AVATARS
+-- ============================================================================
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+    'member-avatars',
+    'member-avatars',
+    true,
+    5242880,
+    ARRAY['image/jpeg', 'image/png', 'image/webp']
+)
+ON CONFLICT (id) DO UPDATE SET
+    public = EXCLUDED.public,
+    file_size_limit = EXCLUDED.file_size_limit,
+    allowed_mime_types = EXCLUDED.allowed_mime_types;
+
+CREATE POLICY "Public View Member Avatars" ON storage.objects
+    FOR SELECT USING (bucket_id = 'member-avatars');
+
+CREATE POLICY "Authenticated Upload Member Avatars" ON storage.objects
+    FOR INSERT TO authenticated
+    WITH CHECK (bucket_id = 'member-avatars');
+
+CREATE POLICY "Authenticated Update Member Avatars" ON storage.objects
+    FOR UPDATE TO authenticated
+    USING (bucket_id = 'member-avatars');
+
+
+
+-- ============================================================================
+-- SIC Unified Attendance & Operations Management System
+-- Migration: 20261108000000_sic_member_lifecycle_and_audit_hardening.sql
+-- Description: Production hardening for Members, Member Registrations,
+--              Administrative Audit Logging, Indexes, Triggers & Strict RLS
+-- ============================================================================
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ----------------------------------------------------------------------------
+-- 1. Automatic updated_at Trigger Function
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION set_updated_at_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ----------------------------------------------------------------------------
+-- 2. Harden Members & Member Registrations Schema, Constraints & Indexes
+-- ----------------------------------------------------------------------------
+ALTER TABLE members DROP CONSTRAINT IF EXISTS check_org_role;
+ALTER TABLE members ADD CONSTRAINT check_org_role CHECK (org_role IN (
+    'SUPER_ADMIN',
+    'SIC_DIRECTOR',
+    'SIC_ADMIN',
+    'ASSOCIATE_ADMIN',
+    'OPERATIONS_MANAGER',
+    'ATTENDANCE_AUDITOR',
+    'MEMBER'
+));
+
+ALTER TABLE members DROP CONSTRAINT IF EXISTS check_member_status;
+ALTER TABLE members ADD CONSTRAINT check_member_status CHECK (status IN (
+    'ACTIVE',
+    'INACTIVE',
+    'SUSPENDED'
+));
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_members_email_lower ON members (LOWER(email));
+CREATE INDEX IF NOT EXISTS idx_members_registration_id ON members (registration_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_member_registrations_email_lower
+    ON member_registrations (LOWER(email))
+    WHERE status IN ('PENDING', 'NEEDS_CORRECTION', 'APPROVED', 'SUSPENDED');
+
+CREATE INDEX IF NOT EXISTS idx_member_registrations_member_id ON member_registrations (member_id);
+
+DROP TRIGGER IF EXISTS trg_members_updated_at ON members;
+CREATE TRIGGER trg_members_updated_at
+    BEFORE UPDATE ON members
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at_timestamp();
+
+DROP TRIGGER IF EXISTS trg_member_registrations_updated_at ON member_registrations;
+CREATE TRIGGER trg_member_registrations_updated_at
+    BEFORE UPDATE ON member_registrations
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at_timestamp();
+
+DROP TRIGGER IF EXISTS trg_groups_updated_at ON groups;
+CREATE TRIGGER trg_groups_updated_at
+    BEFORE UPDATE ON groups
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at_timestamp();
+
+-- ----------------------------------------------------------------------------
+-- 3. Administrative Audit Logs Enhancements
+-- ----------------------------------------------------------------------------
+ALTER TABLE audit_logs
+    ADD COLUMN IF NOT EXISTS target_member_id UUID REFERENCES members(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_target_member ON audit_logs (target_member_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reg_audit_created_at ON registration_audit_logs (created_at DESC);
+
+-- ----------------------------------------------------------------------------
+-- 4. Hardened Security Helper Functions (Active Status Enforced)
+-- ----------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION get_current_member_id()
+RETURNS UUID AS $$
+    SELECT id
+    FROM members
+    WHERE auth_user_id = auth.uid()
+      AND status = 'ACTIVE'
+    LIMIT 1;
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION is_active_sic_member()
+RETURNS BOOLEAN AS $$
+    SELECT EXISTS (
+        SELECT 1
+        FROM members
+        WHERE auth_user_id = auth.uid()
+          AND status = 'ACTIVE'
+    );
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION is_sic_admin()
+RETURNS BOOLEAN AS $$
+    SELECT EXISTS (
+        SELECT 1
+        FROM members
+        WHERE auth_user_id = auth.uid()
+          AND status = 'ACTIVE'
+          AND org_role IN ('SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN')
+    );
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION is_associate_or_super_admin()
+RETURNS BOOLEAN AS $$
+    SELECT is_sic_admin() OR EXISTS (
+        SELECT 1
+        FROM members m
+        LEFT JOIN associate_admins aa ON aa.member_id = m.id AND aa.is_active = true
+        WHERE m.auth_user_id = auth.uid()
+          AND m.status = 'ACTIVE'
+          AND (m.org_role = 'ASSOCIATE_ADMIN' OR aa.id IS NOT NULL)
+    );
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION is_lead_of_group(target_group_id UUID)
+RETURNS BOOLEAN AS $$
+    SELECT is_associate_or_super_admin() OR EXISTS (
+        SELECT 1
+        FROM group_leads gl
+        JOIN members m ON m.id = gl.member_id
+        WHERE m.auth_user_id = auth.uid()
+          AND m.status = 'ACTIVE'
+          AND gl.group_id = target_group_id
+          AND gl.is_active = true
+    );
+$$ LANGUAGE sql STABLE SECURITY DEFINER;
+
+-- ----------------------------------------------------------------------------
+-- 5. Strict Row Level Security (RLS) Policies for Members, Registrations & Audit Logs
+-- ----------------------------------------------------------------------------
+ALTER TABLE members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE member_registrations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE registration_groups ENABLE ROW LEVEL SECURITY;
+ALTER TABLE registration_audit_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- Members Policies:
+-- 1. Admins (Super/Director/Admin/Associate Admin) have full management access
+-- 2. Active members can view active members; authenticated users can view their own record
+-- 3. Active members can only update their own non-privileged profile fields (cannot self-elevate org_role or status)
+DROP POLICY IF EXISTS "Admins full manage members" ON members;
+CREATE POLICY "Admins full manage members" ON members
+    FOR ALL USING (is_associate_or_super_admin())
+    WITH CHECK (is_associate_or_super_admin());
+
+DROP POLICY IF EXISTS "Members view active member directory" ON members;
+CREATE POLICY "Members view active member directory" ON members
+    FOR SELECT USING (
+        auth_user_id = auth.uid()
+        OR is_associate_or_super_admin()
+        OR (is_active_sic_member() AND status = 'ACTIVE')
+    );
+
+DROP POLICY IF EXISTS "Members update own profile" ON members;
+CREATE POLICY "Members update own profile" ON members
+    FOR UPDATE USING (
+        auth_user_id = auth.uid()
+        AND status = 'ACTIVE'
+    )
+    WITH CHECK (
+        auth_user_id = auth.uid()
+        AND status = 'ACTIVE'
+        AND org_role = (SELECT m.org_role FROM members m WHERE m.id = members.id)
+    );
+
+-- Member Registrations Policies:
+DROP POLICY IF EXISTS "Users Read Own Registration" ON member_registrations;
+CREATE POLICY "Users Read Own Registration" ON member_registrations
+    FOR SELECT USING (
+        auth_user_id = auth.uid()
+        OR is_associate_or_super_admin()
+    );
+
+DROP POLICY IF EXISTS "Users Insert Own Registration" ON member_registrations;
+CREATE POLICY "Users Insert Own Registration" ON member_registrations
+    FOR INSERT WITH CHECK (
+        auth_user_id = auth.uid()
+        AND status = 'PENDING'
+    );
+
+DROP POLICY IF EXISTS "Users Update Own Pending Registration" ON member_registrations;
+CREATE POLICY "Users Update Own Pending Registration" ON member_registrations
+    FOR UPDATE USING (
+        (auth_user_id = auth.uid() AND status IN ('PENDING', 'NEEDS_CORRECTION'))
+        OR is_associate_or_super_admin()
+    )
+    WITH CHECK (
+        (auth_user_id = auth.uid() AND status = 'PENDING')
+        OR is_associate_or_super_admin()
+    );
+
+-- Audit Logs Policies (Immutable for ordinary members; readable/insertable only by Admins):
+DROP POLICY IF EXISTS "Only admins view audit logs" ON audit_logs;
+CREATE POLICY "Only admins view audit logs" ON audit_logs
+    FOR SELECT USING (is_associate_or_super_admin());
+
+DROP POLICY IF EXISTS "Only admins insert audit logs" ON audit_logs;
+CREATE POLICY "Only admins insert audit logs" ON audit_logs
+    FOR INSERT WITH CHECK (is_associate_or_super_admin());
+
+DROP POLICY IF EXISTS "Admins Read Audit Logs" ON registration_audit_logs;
+CREATE POLICY "Admins Read Audit Logs" ON registration_audit_logs
+    FOR SELECT USING (is_associate_or_super_admin());
+
+DROP POLICY IF EXISTS "System Insert Audit Logs" ON registration_audit_logs;
+DROP POLICY IF EXISTS "Admins Insert Registration Audit Logs" ON registration_audit_logs;
+CREATE POLICY "Admins Insert Registration Audit Logs" ON registration_audit_logs
+    FOR INSERT WITH CHECK (is_associate_or_super_admin());
 

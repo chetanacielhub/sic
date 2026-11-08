@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireActiveMember } from '@/lib/auth/session';
 import { generateRotatingChallenge } from '@/lib/qr/token';
 
 export async function GET(
@@ -12,6 +13,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { member, errorResponse } = await requireActiveMember();
+    if (errorResponse || !member) return errorResponse!;
+
     const { id: sessionId } = await params;
     const adminClient = createAdminClient();
 

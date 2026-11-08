@@ -5,20 +5,39 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireActiveMember } from '@/lib/auth/session';
+import { getAssociateAdminScope } from '@/lib/auth/rbac';
 import { verifyRotatingChallenge } from '@/lib/qr/token';
 import { z } from 'zod';
 
 const CheckInSchema = z.object({
   challenge: z.string().min(10),
-  member_id: z.string().min(1),
+  member_id: z.string().min(1).optional(),
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
 });
 
 export async function POST(request: NextRequest) {
   try {
+    const { member: currentMember, errorResponse } = await requireActiveMember();
+    if (errorResponse || !currentMember) return errorResponse!;
+
     const body = await request.json();
     const validated = CheckInSchema.parse(body);
+
+    const targetMemberId = validated.member_id || currentMember.id;
+    if (targetMemberId !== currentMember.id) {
+      const scope = await getAssociateAdminScope(currentMember.id);
+      const isAdmin =
+        scope.isAuthorized ||
+        ['SUPER_ADMIN', 'SIC_DIRECTOR', 'SIC_ADMIN'].includes(currentMember.org_role);
+      if (!isAdmin) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: You can only check in for your own member profile.' },
+          { status: 403 }
+        );
+      }
+    }
 
     const parts = validated.challenge.split(':');
     if (parts.length < 3 || parts[0] !== 'SIC' || parts[1] !== 'ATTEND') {
@@ -63,7 +82,7 @@ export async function POST(request: NextRequest) {
       .from('session_eligible_members')
       .select('id')
       .eq('session_id', sessionId)
-      .eq('member_id', validated.member_id)
+      .eq('member_id', targetMemberId)
       .maybeSingle();
 
     if (!isEligible) {
@@ -73,15 +92,22 @@ export async function POST(request: NextRequest) {
       }, { status: 403 });
     }
 
-    // 4. Fetch Member Details
+    // 4. Fetch Member Details & Verify Active Status
     const { data: member, error: memErr } = await adminClient
       .from('members')
-      .select('id, member_code, full_name, email, department')
-      .eq('id', validated.member_id)
+      .select('id, member_code, full_name, email, department, status')
+      .eq('id', targetMemberId)
       .single();
 
     if (memErr || !member) {
       return NextResponse.json({ success: false, error: 'Member not found.' }, { status: 404 });
+    }
+
+    if (member.status !== 'ACTIVE') {
+      return NextResponse.json(
+        { success: false, error: 'Target member account is not active.' },
+        { status: 403 }
+      );
     }
 
     // 5. Check-In via RPC or Atomic Direct Insert
@@ -92,7 +118,7 @@ export async function POST(request: NextRequest) {
 
     const { data: rpcResult, error: rpcErr } = await adminClient.rpc('record_attendance_checkin', {
       p_session_id: sessionId,
-      p_member_id: validated.member_id,
+      p_member_id: targetMemberId,
       p_challenge_nonce: verification.nonce,
       p_verification_method: 'ROTATING_QR',
       p_ip_address: request.headers.get('x-forwarded-for') || null,
@@ -105,7 +131,7 @@ export async function POST(request: NextRequest) {
         .from('attendance_records')
         .select('*')
         .eq('session_id', sessionId)
-        .eq('member_id', validated.member_id)
+        .eq('member_id', targetMemberId)
         .maybeSingle();
 
       if (existing) {
@@ -123,7 +149,7 @@ export async function POST(request: NextRequest) {
           .from('attendance_records')
           .insert([{
             session_id: sessionId,
-            member_id: validated.member_id,
+            member_id: targetMemberId,
             status: calculatedStatus,
             check_in_time: now.toISOString(),
             verification_method: 'ROTATING_QR',

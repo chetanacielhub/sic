@@ -5,8 +5,9 @@
 // ============================================================================
 
 import React from 'react';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { getCurrentMember } from '@/lib/auth/session';
+import { getCurrentMember, getSessionUser, getCurrentUserRegistration } from '@/lib/auth/session';
 import { getAssociateAdminScope } from '@/lib/auth/rbac';
 import { getGroups, resolveAllKnownMembers } from '@/lib/academic/store';
 import { GroupsDirectoryClient } from '@/components/sic/groups-directory-client';
@@ -15,18 +16,34 @@ import { Member } from '@/lib/types/sic';
 export const dynamic = 'force-dynamic';
 
 export default async function GroupsPage() {
-  const supabase = await createClient();
-  const currentMember = await getCurrentMember();
-
-  let isAdmin = false;
-  if (currentMember) {
-    const scope = await getAssociateAdminScope(currentMember.id);
-    isAdmin =
-      scope.isAuthorized ||
-      currentMember.org_role === 'SUPER_ADMIN' ||
-      currentMember.org_role === 'SIC_DIRECTOR' ||
-      currentMember.org_role === 'SIC_ADMIN';
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) {
+    redirect('/login?next=/sic/groups');
   }
+
+  const currentMember = await getCurrentMember(sessionUser);
+  if (!currentMember) {
+    const registration = await getCurrentUserRegistration(sessionUser.id);
+    if (!registration) {
+      redirect('/register');
+    }
+    if (registration.status === 'NEEDS_CORRECTION') {
+      redirect('/register?correction=true');
+    }
+    redirect('/registration-status');
+  }
+
+  if (currentMember.status === 'SUSPENDED') {
+    redirect('/registration-status?status=SUSPENDED');
+  }
+
+  const supabase = await createClient();
+  const scope = await getAssociateAdminScope(currentMember.id);
+  const isAdmin =
+    scope.isAuthorized ||
+    currentMember.org_role === 'SUPER_ADMIN' ||
+    currentMember.org_role === 'SIC_DIRECTOR' ||
+    currentMember.org_role === 'SIC_ADMIN';
 
   const [groups, storeKnownMembers, { data: dbMembers }] = await Promise.all([
     getGroups(),
@@ -42,12 +59,12 @@ export default async function GroupsPage() {
   // Build unified list of active members for leader/member assignment
   const memberMap = new Map<string, Member>();
   for (const m of dbMembers || []) {
-    if (m.status !== 'SUSPENDED') {
+    if (m.status === 'ACTIVE') {
       memberMap.set(m.email.toLowerCase(), m as Member);
     }
   }
   for (const m of storeKnownMembers) {
-    if (m.status !== 'SUSPENDED' && !memberMap.has(m.email.toLowerCase())) {
+    if (m.status === 'ACTIVE' && !memberMap.has(m.email.toLowerCase())) {
       memberMap.set(m.email.toLowerCase(), m);
     }
   }
@@ -61,17 +78,13 @@ export default async function GroupsPage() {
     <GroupsDirectoryClient
       initialGroups={groups}
       availableMembers={availableMembers}
-      currentMember={
-        currentMember
-          ? {
-              id: currentMember.id,
-              email: currentMember.email,
-              full_name: currentMember.full_name,
-              member_code: currentMember.member_code,
-              org_role: currentMember.org_role,
-            }
-          : null
-      }
+      currentMember={{
+        id: currentMember.id,
+        email: currentMember.email,
+        full_name: currentMember.full_name,
+        member_code: currentMember.member_code,
+        org_role: currentMember.org_role,
+      }}
       isAdmin={isAdmin}
     />
   );

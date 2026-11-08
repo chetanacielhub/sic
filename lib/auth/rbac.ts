@@ -135,9 +135,14 @@ export async function getAssociateAdminScope(memberId: string): Promise<{
     }
   } catch {}
 
-  const adminClient = createAdminClient();
+  let db;
+  try {
+    db = createAdminClient();
+  } catch {
+    db = await createClient();
+  }
 
-  const { data: member } = await adminClient
+  const { data: member } = await db
     .from('members')
     .select('id, email, org_role, status')
     .eq('id', memberId)
@@ -163,7 +168,7 @@ export async function getAssociateAdminScope(memberId: string): Promise<{
   // Check associate_admins table for specific college scoping
   let assignments = null;
   try {
-    const res = await adminClient
+    const res = await db
       .from('associate_admins')
       .select('college_id, is_active')
       .eq('member_id', memberId)
@@ -199,7 +204,12 @@ export async function resolveUserContext(
   memberId: string,
   targetProjectId?: string
 ): Promise<UserEffectiveContext> {
-  const adminClient = createAdminClient();
+  let adminClient;
+  try {
+    adminClient = createAdminClient();
+  } catch {
+    adminClient = await createClient();
+  }
 
   // 1. Fetch Member Profile
   const { data: dbMember } = await adminClient
@@ -223,9 +233,9 @@ export async function resolveUserContext(
     updated_at: new Date().toISOString(),
   } : null);
 
-  if (!member) {
+  if (!member || member.status !== 'ACTIVE') {
     return {
-      member: null,
+      member: member || null,
       isSuperAdmin: false,
       projects: [],
       permissions: [],
