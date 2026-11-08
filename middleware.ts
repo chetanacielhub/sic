@@ -95,11 +95,22 @@ export async function middleware(request: NextRequest) {
     request,
   });
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://oovusdcssgdspizneqjr.supabase.co';
+  const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim().replace(/^["']|["']$/g, '');
+  const url =
+    !rawUrl || rawUrl.includes('hgnwtuabvbtfgxpwvqdn')
+      ? 'https://oovusdcssgdspizneqjr.supabase.co'
+      : rawUrl;
+
+  const rawPub = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim().replace(/^["']|["']$/g, '');
+  const rawAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim().replace(/^["']|["']$/g, '');
+  const candidateKey = rawPub || rawAnon || '';
   const key =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    'sb_publishable_ixP2ffMebEOuzOYooyoiIw_1jQb12s2';
+    !candidateKey ||
+    candidateKey.includes('dummy') ||
+    candidateKey.includes('placeholder') ||
+    candidateKey.startsWith('sb_secret_')
+      ? 'sb_publishable_ixP2ffMebEOuzOYooyoiIw_1jQb12s2'
+      : candidateKey;
 
   const supabase = createServerClient(url, key, {
     cookies: {
