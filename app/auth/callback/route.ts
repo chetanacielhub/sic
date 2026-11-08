@@ -17,19 +17,26 @@ export async function GET(request: NextRequest) {
   const errorParam = searchParams.get('error');
   const errorDescription = searchParams.get('error_description');
 
-// Determine base host (for load balancers/proxies)
-  const forwardedHost = request.headers.get('x-forwarded-host');
+  // Use the canonical production URL so proxy/forwarded headers cannot
+  // accidentally send a production OAuth session back to localhost.
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  const forwardedHost = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim();
   const isLocalEnv = process.env.NODE_ENV === 'development';
-  const baseOrigin = (isLocalEnv || !forwardedHost) ? origin : `https://${forwardedHost}`;
+  const baseOrigin = isLocalEnv
+    ? origin
+    : configuredAppUrl
+      ? new URL(configuredAppUrl).origin
+      : forwardedHost
+        ? `https://${forwardedHost}`
+        : origin;
 
   // Helper to validate and sanitize internal redirect paths (prevent open redirects)
   const getValidRedirectPath = (target: string | null, fallback: string = '/dashboard'): string => {
     if (!target) return fallback;
-    // Must be a relative path starting with '/', but not protocol-relative ('//') or malformed ('/\\')
     if (
       target.startsWith('/') &&
       !target.startsWith('//') &&
-      !target.startsWith('/\\') &&
+      !target.startsWith('/\\\\') &&
       !target.includes('://')
     ) {
       return target;
@@ -94,7 +101,6 @@ export async function GET(request: NextRequest) {
     const registration = await getCurrentUserRegistration(user.id);
 
     if (!registration) {
-      // First-time user: redirect to Registration Form
       return NextResponse.redirect(`${baseOrigin}/register`);
     }
 
@@ -106,12 +112,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseOrigin}/register?correction=true`);
     }
 
-    // For PENDING, REJECTED, SUSPENDED -> show status screen
     return NextResponse.redirect(`${baseOrigin}/registration-status`);
   }
 
-  // Return user to login with error parameter if code is missing
   return NextResponse.redirect(`${baseOrigin}${defaultErrorRoute}?error=MissingAuthCode`);
 }
-
-
