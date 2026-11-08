@@ -64,6 +64,9 @@ export default async function MembersPage() {
   const removedKeys = getRemovedMemberKeys();
 
   for (const m of dbMembers || []) {
+    // Removed members are retained in the database for historical attendance/audit integrity,
+    // but are excluded from the active SIC directory.
+    if (m.status === 'INACTIVE') continue;
     if (removedKeys.has(m.id.toLowerCase()) || removedKeys.has(m.email.toLowerCase())) continue;
     const activeGroups = ((m.group_memberships || []) as Array<{
       status: string;
@@ -90,6 +93,8 @@ export default async function MembersPage() {
 
   // Ensure all registrations in the store are also represented in the directory so Admin can Approve, Ban, or Remove directly
   for (const reg of allRegistrations) {
+    // Rejected/removed registrations remain available in the Approvals history, not the Directory.
+    if (reg.status === 'REJECTED') continue;
     if (
       removedKeys.has(reg.id.toLowerCase()) ||
       (reg.member_id && removedKeys.has(reg.member_id.toLowerCase())) ||
