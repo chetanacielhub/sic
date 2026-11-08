@@ -556,41 +556,78 @@ export async function setMemberBanStatus(params: {
 
 export async function removeMemberById(memberId: string, email?: string): Promise<boolean> {
   const cleanEmail = email?.trim().toLowerCase();
+  const now = new Date().toISOString();
+  const admin = await getDbClient();
+
+  let registration: MemberRegistration | null = null;
+  const { data: byId, error: byIdError } = await admin
+    .from('member_registrations').select('*').eq('id', memberId).maybeSingle();
+  if (byIdError) throw new Error(byIdError.message);
+  registration = byId as MemberRegistration | null;
+  if (!registration && cleanEmail) {
+    const { data, error } = await admin.from('member_registrations')
+      .select('*').eq('email', cleanEmail).maybeSingle();
+    if (error) throw new Error(error.message);
+    registration = data as MemberRegistration | null;
+  }
+
+  const resolvedMemberId = registration?.member_id || memberId;
+  const { error: memberUpdateError } = await admin.from('members')
+    .update({ status: 'INACTIVE', updated_at: now }).eq('id', resolvedMemberId);
+  if (memberUpdateError) throw new Error(memberUpdateError.message);
+
+  if (cleanEmail) {
+    const { error } = await admin.from('members')
+      .update({ status: 'INACTIVE', updated_at: now }).eq('email', cleanEmail);
+    if (error) throw new Error(error.message);
+  }
+
+  const { error: membershipsError } = await admin.from('group_memberships')
+    .update({ status: 'LEFT', ended_at: now }).eq('member_id', resolvedMemberId);
+  if (membershipsError) throw new Error(membershipsError.message);
+
+  const { error: leadsError } = await admin.from('group_leads')
+    .update({ is_active: false }).eq('member_id', resolvedMemberId);
+  if (leadsError) throw new Error(leadsError.message);
+
+  const { error: projectMembershipError } = await admin.from('project_memberships')
+    .update({ status: 'LEFT', updated_at: now }).eq('member_id', resolvedMemberId);
+  if (projectMembershipError) throw new Error(projectMembershipError.message);
+
+  if (registration) {
+    const { error } = await admin.from('member_registrations').update({
+      status: 'REJECTED',
+      rejection_reason: 'Removed from the SIC directory by an administrator.',
+      reviewed_at: now,
+      updated_at: now,
+    }).eq('id', registration.id);
+    if (error) throw new Error(error.message);
+
+    const { error: auditError } = await admin.from('registration_audit_logs').insert({
+      registration_id: registration.id,
+      action: 'REMOVED_FROM_DIRECTORY',
+      notes: 'Member was removed from the active SIC directory. Historical attendance and audit records were retained.',
+    });
+    if (auditError) throw new Error(auditError.message);
+  }
 
   if (!globalThis.__sic_removed_members) globalThis.__sic_removed_members = [];
-  if (!globalThis.__sic_removed_members.includes(memberId.toLowerCase())) {
-    globalThis.__sic_removed_members.push(memberId.toLowerCase());
+  for (const key of [memberId.toLowerCase(), cleanEmail].filter(Boolean) as string[]) {
+    if (!globalThis.__sic_removed_members.includes(key)) globalThis.__sic_removed_members.push(key);
   }
-  if (cleanEmail && !globalThis.__sic_removed_members.includes(cleanEmail)) {
-    globalThis.__sic_removed_members.push(cleanEmail);
-  }
-
-  try {
-    const admin = await getDbClient();
-    await admin.from('members').delete().eq('id', memberId);
-    await admin.from('member_registrations').delete().eq('id', memberId);
-    await admin.from('member_registrations').delete().eq('member_id', memberId);
-    if (cleanEmail) {
-      await admin.from('members').delete().ilike('email', cleanEmail);
-      await admin.from('member_registrations').delete().ilike('email', cleanEmail);
-    }
-  } catch {}
-
   if (globalThis.__sic_members) {
     globalThis.__sic_members = globalThis.__sic_members.filter(
-      m => m.id !== memberId && (!cleanEmail || m.email.toLowerCase() !== cleanEmail)
+      member => member.id !== resolvedMemberId && (!cleanEmail || member.email.toLowerCase() !== cleanEmail)
     );
   }
-
   if (globalThis.__sic_registrations) {
-    globalThis.__sic_registrations = globalThis.__sic_registrations.filter(
-      r =>
-        r.id !== memberId &&
-        r.member_id !== memberId &&
-        (!cleanEmail || r.email.toLowerCase() !== cleanEmail)
+    globalThis.__sic_registrations = globalThis.__sic_registrations.map(item =>
+      item.id === memberId || item.member_id === resolvedMemberId ||
+      (cleanEmail && item.email.toLowerCase() === cleanEmail)
+        ? { ...item, status: 'REJECTED', rejection_reason: 'Removed from the SIC directory by an administrator.', updated_at: now }
+        : item
     );
   }
-
   return true;
 }
 
