@@ -142,19 +142,49 @@ export function createAdminClient() {
       }
     }
 
-    // Execute PostgreSQL query using the valid publishable key + authenticated user's JWT from server cookies
-    let accessToken: string | null = null;
+    // Execute PostgreSQL query using the valid publishable key + verified server-side user JWT under PostgreSQL RLS.
+    // This fallback NEVER bypasses Admin authorization: all queries/writes are strictly governed by PostgreSQL RLS
+    // and caller routes additionally verify Admin/Lead roles on the server before invoking store mutations.
+    const method = (init?.method || 'GET').toUpperCase();
+    const isWriteRequest = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
+
+    let verifiedAccessToken: string | null = null;
     try {
       const sessionClient = await createServerSessionClient();
       const {
-        data: { session },
-      } = await sessionClient.auth.getSession();
-      accessToken = session?.access_token || null;
+        data: { user },
+        error: userErr,
+      } = await sessionClient.auth.getUser();
+
+      if (!userErr && user) {
+        const {
+          data: { session },
+        } = await sessionClient.auth.getSession();
+        if (session?.access_token && session.user?.id === user.id) {
+          verifiedAccessToken = session.access_token;
+        }
+      }
     } catch {}
+
+    if (isWriteRequest && !verifiedAccessToken) {
+      return new Response(
+        JSON.stringify({
+          code: 'PGRST301',
+          message:
+            'Server configuration error: SUPABASE_SERVICE_ROLE_KEY is missing or invalid and no verified authenticated user session is present for RLS-governed write.',
+          details: null,
+          hint: 'Configure a valid SUPABASE_SERVICE_ROLE_KEY for project oovusdcssgdspizneqjr.',
+        }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
 
     const headers = new Headers(init?.headers);
     headers.set('apikey', publishableKey);
-    headers.set('Authorization', `Bearer ${accessToken || publishableKey}`);
+    headers.set('Authorization', `Bearer ${verifiedAccessToken || publishableKey}`);
 
     return fetch(input, {
       ...init,

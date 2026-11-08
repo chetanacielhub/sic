@@ -372,6 +372,17 @@ export async function recordAdminAuditLog(
   }
 }
 
+function formatDatabaseWriteError(
+  error: { code?: string; message?: string } | null | undefined,
+  fallbackMessage: string
+): string {
+  if (!error) return fallbackMessage;
+  if (error.code === '42501') {
+    return `Database RLS policy rejected the operation (${error.message}). Ensure SUPABASE_SERVICE_ROLE_KEY for project oovusdcssgdspizneqjr is configured and migration 20261108000000_sic_member_lifecycle_and_audit_hardening.sql has been applied in the Supabase SQL Editor.`;
+  }
+  return error.message || fallbackMessage;
+}
+
 export function getStoredMembers(): StoredMember[] {
   return globalThis.__sic_members || [];
 }
@@ -451,14 +462,12 @@ export async function inviteOrCreateMember(params: {
     .select()
     .single();
 
-  if (error && error.code !== '42501') {
-    throw new Error(error.message || 'Failed to persist invited member in PostgreSQL.');
+  if (error || !data) {
+    throw new Error(formatDatabaseWriteError(error, 'Failed to persist invited member in PostgreSQL.'));
   }
 
-  if (data) {
-    newMember.id = data.id;
-    newMember.member_code = data.member_code || newMember.member_code;
-  }
+  newMember.id = data.id;
+  newMember.member_code = data.member_code || newMember.member_code;
 
   for (const gid of params.group_ids || []) {
     await admin.from('group_memberships').upsert(
@@ -624,15 +633,15 @@ export async function setMemberBanStatus(params: {
       .update(updatePayload)
       .eq('id', existingMember.id)
       .select('*, college:colleges(*), course:courses(*), academic_year:academic_years(*), division:divisions(*)')
-      .maybeSingle();
+      .single();
 
-    if (updateErr && updateErr.code !== '42501') {
-      return { success: false, error: updateErr.message };
+    if (updateErr || !updatedRow) {
+      return {
+        success: false,
+        error: formatDatabaseWriteError(updateErr, 'Failed to update member in PostgreSQL.'),
+      };
     }
-    persistedMember = (updatedRow as Member) || {
-      ...existingMember,
-      ...(updatePayload as Partial<Member>),
-    };
+    persistedMember = updatedRow as Member;
   } else {
     const resolvedEmail = cleanEmail || registration?.email?.toLowerCase();
     if (!resolvedEmail) {
@@ -693,12 +702,15 @@ export async function setMemberBanStatus(params: {
         { onConflict: 'email' }
       )
       .select('*, college:colleges(*), course:courses(*), academic_year:academic_years(*), division:divisions(*)')
-      .maybeSingle();
+      .single();
 
-    if (upsertErr && upsertErr.code !== '42501') {
-      return { success: false, error: upsertErr.message };
+    if (upsertErr || !insertedRow) {
+      return {
+        success: false,
+        error: formatDatabaseWriteError(upsertErr, 'Failed to persist member status in PostgreSQL.'),
+      };
     }
-    persistedMember = (insertedRow as Member) || fallbackMember;
+    persistedMember = insertedRow as Member;
   }
 
   if (registration) {
@@ -886,8 +898,11 @@ export async function removeMemberById(
     .update({ status: 'INACTIVE', updated_at: now })
     .eq('id', resolvedMemberId);
 
-  if (memErr && memErr.code !== '42501') {
-    return { success: false, error: memErr.message };
+  if (memErr) {
+    return {
+      success: false,
+      error: formatDatabaseWriteError(memErr, 'Failed to deactivate member in PostgreSQL.'),
+    };
   }
 
   if (cleanEmail) {
@@ -1908,8 +1923,8 @@ export async function saveRegistration(payload: {
     updated_at: now,
   });
 
-  if (regError && regError.code !== '42501') {
-    throw new Error(regError.message || 'Failed to persist registration in PostgreSQL.');
+  if (regError) {
+    throw new Error(formatDatabaseWriteError(regError, 'Failed to persist registration in PostgreSQL.'));
   }
 
   await admin.from('registration_groups').delete().eq('registration_id', regId);
@@ -2027,25 +2042,26 @@ export async function processRegistrationReview(params: {
         })
         .eq('id', memberId);
 
-      if (updateMemberErr && updateMemberErr.code !== '42501') {
-        return { success: false, error: updateMemberErr.message };
+      if (updateMemberErr) {
+        return {
+          success: false,
+          error: formatDatabaseWriteError(updateMemberErr, 'Failed to update member record on approval.'),
+        };
       }
     } else {
       const { data: insertedMember, error: insertMemberErr } = await admin
         .from('members')
         .insert(memberPayload)
         .select('id')
-        .maybeSingle();
+        .single();
 
-      if (insertMemberErr && insertMemberErr.code !== '42501') {
+      if (insertMemberErr || !insertedMember?.id) {
         return {
           success: false,
-          error: insertMemberErr.message || 'Failed to create member record on approval.',
+          error: formatDatabaseWriteError(insertMemberErr, 'Failed to create member record on approval.'),
         };
       }
-      if (insertedMember?.id) {
-        memberId = insertedMember.id;
-      }
+      memberId = insertedMember.id;
     }
 
     const validReviewerId = reviewerMember?.id || null;
@@ -2112,8 +2128,11 @@ export async function processRegistrationReview(params: {
       })
       .eq('id', reg.id);
 
-    if (regUpdateErr && regUpdateErr.code !== '42501') {
-      return { success: false, error: regUpdateErr.message };
+    if (regUpdateErr) {
+      return {
+        success: false,
+        error: formatDatabaseWriteError(regUpdateErr, 'Failed to update registration status on approval.'),
+      };
     }
 
     await admin.from('registration_audit_logs').insert({
@@ -2226,8 +2245,11 @@ export async function processRegistrationReview(params: {
       })
       .eq('id', reg.id);
 
-    if (updateErr && updateErr.code !== '42501') {
-      return { success: false, error: updateErr.message };
+    if (updateErr) {
+      return {
+        success: false,
+        error: formatDatabaseWriteError(updateErr, 'Failed to request correction in PostgreSQL.'),
+      };
     }
 
     await admin.from('registration_audit_logs').insert({
@@ -2276,8 +2298,11 @@ export async function processRegistrationReview(params: {
       })
       .eq('id', reg.id);
 
-    if (updateErr && updateErr.code !== '42501') {
-      return { success: false, error: updateErr.message };
+    if (updateErr) {
+      return {
+        success: false,
+        error: formatDatabaseWriteError(updateErr, 'Failed to reject registration in PostgreSQL.'),
+      };
     }
 
     await admin.from('registration_audit_logs').insert({
