@@ -70,6 +70,11 @@ async function requireAdmin() {
 
 export async function GET(request: NextRequest) {
   try {
+    const admin = await requireAdmin();
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: Admin access required' }, { status: 403 });
+    }
+
     const { searchParams } = new URL(request.url);
     const department = searchParams.get('department');
     const role = searchParams.get('role');
