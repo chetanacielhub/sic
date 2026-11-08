@@ -75,10 +75,14 @@ function AssociateAdminLoginForm() {
 
       // Direct through auth callback specifying role=associate_admin and next=/associate-admin/dashboard
       const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, '');
-      const appOrigin =
-        process.env.NODE_ENV === 'production'
-          ? configuredAppUrl || 'https://sic.cielhub.org'
-          : window.location.origin;
+      const isProdHost =
+        process.env.NODE_ENV === 'production' ||
+        (typeof window !== 'undefined' &&
+          window.location.hostname !== 'localhost' &&
+          window.location.hostname !== '127.0.0.1');
+      const appOrigin = isProdHost
+        ? configuredAppUrl || 'https://sic.cielhub.org'
+        : window.location.origin;
       const redirectUrl = `${appOrigin}/auth/callback?role=associate_admin&next=/associate-admin/dashboard`;
 
       const { error: oauthError } = await supabase.auth.signInWithOAuth({

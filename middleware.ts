@@ -73,6 +73,30 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  // If Supabase OAuth redirected to localhost with ?code=... when login was initiated on https://sic.cielhub.org
+  // (i.e. no PKCE code-verifier cookie on localhost), forward to https://sic.cielhub.org/auth/callback
+  if (
+    request.nextUrl.searchParams.has('code') &&
+    (request.nextUrl.hostname === 'localhost' || request.nextUrl.hostname === '127.0.0.1')
+  ) {
+    const hasLocalCodeVerifier = request.cookies
+      .getAll()
+      .some(c => c.name.includes('code-verifier'));
+    const prodUrl = (
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      'https://sic.cielhub.org'
+    )
+      .trim()
+      .replace(/\/$/, '');
+
+    if (!hasLocalCodeVerifier && prodUrl.startsWith('https://')) {
+      return NextResponse.redirect(
+        new URL(`/auth/callback${request.nextUrl.search}`, prodUrl)
+      );
+    }
+  }
+
   // If Supabase OAuth redirected to root /?code=... instead of /auth/callback, forward to /auth/callback
   if (pathname === '/' && request.nextUrl.searchParams.has('code')) {
     return NextResponse.redirect(

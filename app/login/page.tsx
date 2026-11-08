@@ -73,11 +73,19 @@ function LoginForm() {
       setError(null);
 
       const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, '');
-      const appOrigin =
-        process.env.NODE_ENV === 'production'
-          ? configuredAppUrl || 'https://sic.cielhub.org'
-          : window.location.origin;
-      const redirectUrl = `${appOrigin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
+      const isProdHost =
+        process.env.NODE_ENV === 'production' ||
+        (typeof window !== 'undefined' &&
+          window.location.hostname !== 'localhost' &&
+          window.location.hostname !== '127.0.0.1');
+      const appOrigin = isProdHost
+        ? configuredAppUrl || 'https://sic.cielhub.org'
+        : window.location.origin;
+      const callbackPath =
+        redirectTo && redirectTo !== '/dashboard'
+          ? `/auth/callback?next=${encodeURIComponent(redirectTo)}`
+          : '/auth/callback';
+      const redirectUrl = `${appOrigin}${callbackPath}`;
 
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
