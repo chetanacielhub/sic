@@ -72,7 +72,8 @@ function LoginForm() {
       setIsGoogleLoading(true);
       setError(null);
 
-      const redirectUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
+      const appOrigin = process.env.NODE_ENV === 'production' ? 'https://sic.cielhub.org' : window.location.origin;
+      const redirectUrl = `${appOrigin}/auth/callback?next=${encodeURIComponent(redirectTo)}`;
 
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
