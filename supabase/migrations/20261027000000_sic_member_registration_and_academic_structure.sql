@@ -187,16 +187,21 @@ CREATE INDEX IF NOT EXISTS idx_members_college ON members(college_id);
 -- ----------------------------------------------------------------------------
 DO $$
 DECLARE
-    v_cimr_id UUID := 'e1111111-1111-1111-1111-111111111111';
-    v_chsc_id UUID := 'e2222222-2222-2222-2222-222222222222';
+    v_cimr_id UUID   := 'e1111111-1111-1111-1111-111111111111';
+    v_chsc_id UUID   := 'e2222222-2222-2222-2222-222222222222';
+    v_crkimr_id UUID := 'e3333333-3333-3333-3333-333333333333';
     
     v_course_pgdm UUID := 'f1111111-1111-1111-1111-111111111111';
     v_course_bcom UUID := 'f2222222-2222-2222-2222-222222222222';
     v_course_bms UUID  := 'f3333333-3333-3333-3333-333333333333';
     v_course_bscit UUID:= 'f4444444-4444-4444-4444-444444444444';
+    v_course_mms UUID  := 'f5555555-5555-5555-5555-555555555555';
 
     v_year_pgdm_1 UUID := 'c1111111-0001-1111-1111-111111111111';
     v_year_pgdm_2 UUID := 'c1111111-0002-1111-1111-111111111111';
+
+    v_year_mms_1 UUID  := 'c5555555-0001-1111-1111-111111111111';
+    v_year_mms_2 UUID  := 'c5555555-0002-1111-1111-111111111111';
 
     v_year_bcom_1 UUID := 'c2222222-0001-1111-1111-111111111111';
     v_year_bcom_2 UUID := 'c2222222-0002-1111-1111-111111111111';
@@ -214,13 +219,15 @@ BEGIN
     INSERT INTO colleges (id, name, code, description)
     VALUES 
         (v_cimr_id, 'Chetana''s Institute of Management & Research', 'CIMR', 'Postgraduate Business & Innovation Management'),
-        (v_chsc_id, 'Chetana''s Hazarimal Somani College of Commerce & Economics', 'CHSC', 'Undergraduate Commerce, Arts & IT')
+        (v_chsc_id, 'Chetana''s Hazarimal Somani College of Commerce & Economics', 'CHSC', 'Undergraduate Commerce, Arts & IT'),
+        (v_crkimr_id, 'Chetana''s R.K. Institute of Management and Research', 'CRKIMR', 'Postgraduate Management Studies & Research')
     ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, code = EXCLUDED.code;
 
     -- 2. Courses
     INSERT INTO courses (id, college_id, name, code, duration_years)
     VALUES 
         (v_course_pgdm, v_cimr_id, 'Post Graduate Diploma in Management (PGDM)', 'PGDM', 2),
+        (v_course_mms, v_crkimr_id, 'Master of Management Studies (MMS)', 'MMS', 2),
         (v_course_bcom, v_chsc_id, 'Bachelor of Commerce (B.Com)', 'BCOM', 3),
         (v_course_bms, v_chsc_id, 'Bachelor of Management Studies (BMS)', 'BMS', 3),
         (v_course_bscit, v_chsc_id, 'B.Sc Information Technology (B.Sc IT)', 'BSCIT', 3)
@@ -231,6 +238,8 @@ BEGIN
     VALUES 
         (v_year_pgdm_1, v_course_pgdm, 'First Year', 1),
         (v_year_pgdm_2, v_course_pgdm, 'Second Year', 2),
+        (v_year_mms_1, v_course_mms, 'Year 1', 1),
+        (v_year_mms_2, v_course_mms, 'Year 2', 2),
         (v_year_bcom_1, v_course_bcom, 'First Year', 1),
         (v_year_bcom_2, v_course_bcom, 'Second Year', 2),
         (v_year_bcom_3, v_course_bcom, 'Third Year', 3),
@@ -243,19 +252,33 @@ BEGIN
     ON CONFLICT (id) DO UPDATE SET year_name = EXCLUDED.year_name, year_number = EXCLUDED.year_number;
 
     -- 4. Divisions
-    -- PGDM Year 1
+    -- PGDM Year 1 (Chetana's Institute of Management & Research)
     INSERT INTO divisions (academic_year_id, course_id, college_id, name)
     VALUES 
         (v_year_pgdm_1, v_course_pgdm, v_cimr_id, 'Division A'),
         (v_year_pgdm_1, v_course_pgdm, v_cimr_id, 'Division B'),
-        (v_year_pgdm_1, v_course_pgdm, v_cimr_id, 'Division C')
+        (v_year_pgdm_1, v_course_pgdm, v_cimr_id, 'Division C'),
+        (v_year_pgdm_1, v_course_pgdm, v_cimr_id, 'Division D'),
+        (v_year_pgdm_1, v_course_pgdm, v_cimr_id, 'Division M')
     ON CONFLICT (academic_year_id, name) DO NOTHING;
 
-    -- PGDM Year 2
+    -- PGDM Year 2 (Chetana's Institute of Management & Research)
     INSERT INTO divisions (academic_year_id, course_id, college_id, name)
     VALUES 
         (v_year_pgdm_2, v_course_pgdm, v_cimr_id, 'Division A'),
-        (v_year_pgdm_2, v_course_pgdm, v_cimr_id, 'Division B')
+        (v_year_pgdm_2, v_course_pgdm, v_cimr_id, 'Division B'),
+        (v_year_pgdm_2, v_course_pgdm, v_cimr_id, 'Division C'),
+        (v_year_pgdm_2, v_course_pgdm, v_cimr_id, 'Division D'),
+        (v_year_pgdm_2, v_course_pgdm, v_cimr_id, 'Division M')
+    ON CONFLICT (academic_year_id, name) DO NOTHING;
+
+    -- MMS Year 1 & Year 2 (Chetana's R.K. Institute of Management and Research)
+    INSERT INTO divisions (academic_year_id, course_id, college_id, name)
+    VALUES 
+        (v_year_mms_1, v_course_mms, v_crkimr_id, 'Division A'),
+        (v_year_mms_1, v_course_mms, v_crkimr_id, 'Division B'),
+        (v_year_mms_2, v_course_mms, v_crkimr_id, 'Division A'),
+        (v_year_mms_2, v_course_mms, v_crkimr_id, 'Division B')
     ON CONFLICT (academic_year_id, name) DO NOTHING;
 
     -- B.Com Year 1

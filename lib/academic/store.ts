@@ -25,12 +25,241 @@ export interface StoredMember extends Member {
 }
 
 // ----------------------------------------------------------------------------
-// Institutional Academic Structure Store (No Dummy Seed Data)
+// Institutional Academic Structure Store
 // ----------------------------------------------------------------------------
-export const SEED_COLLEGES: College[] = [];
-export const SEED_COURSES: Course[] = [];
-export const SEED_YEARS: AcademicYear[] = [];
-export const SEED_DIVISIONS: Division[] = [];
+const INITIAL_TIMESTAMP = '2026-10-27T00:00:00.000Z';
+
+export const SEED_COLLEGES: College[] = [
+  {
+    id: 'e1111111-1111-1111-1111-111111111111',
+    name: "Chetana's Institute of Management & Research",
+    code: 'CIMR',
+    description: 'Postgraduate Business & Innovation Management',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'e3333333-3333-3333-3333-333333333333',
+    name: "Chetana's R.K. Institute of Management and Research",
+    code: 'CRKIMR',
+    description: 'Postgraduate Management Studies & Research',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+];
+
+export const SEED_COURSES: Course[] = [
+  {
+    id: 'f1111111-1111-1111-1111-111111111111',
+    college_id: 'e1111111-1111-1111-1111-111111111111',
+    name: 'Post Graduate Diploma in Management (PGDM)',
+    code: 'PGDM',
+    duration_years: 2,
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'f5555555-5555-5555-5555-555555555555',
+    college_id: 'e3333333-3333-3333-3333-333333333333',
+    name: 'Master of Management Studies (MMS)',
+    code: 'MMS',
+    duration_years: 2,
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+];
+
+export const SEED_YEARS: AcademicYear[] = [
+  // CIMR - PGDM Year 1 & Year 2
+  {
+    id: 'c1111111-0001-1111-1111-111111111111',
+    course_id: 'f1111111-1111-1111-1111-111111111111',
+    year_name: 'Year 1',
+    year_number: 1,
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'c1111111-0002-1111-1111-111111111111',
+    course_id: 'f1111111-1111-1111-1111-111111111111',
+    year_name: 'Year 2',
+    year_number: 2,
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  // CRKIMR - MMS Year 1 & Year 2
+  {
+    id: 'c5555555-0001-1111-1111-111111111111',
+    course_id: 'f5555555-5555-5555-5555-555555555555',
+    year_name: 'Year 1',
+    year_number: 1,
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'c5555555-0002-1111-1111-111111111111',
+    course_id: 'f5555555-5555-5555-5555-555555555555',
+    year_name: 'Year 2',
+    year_number: 2,
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+];
+
+export const SEED_DIVISIONS: Division[] = [
+  // Chetana's Institute of Management & Research (CIMR) - Year 1: Divisions A, B, C, D, M
+  {
+    id: 'd1111111-0001-000a-1111-111111111111',
+    college_id: 'e1111111-1111-1111-1111-111111111111',
+    course_id: 'f1111111-1111-1111-1111-111111111111',
+    academic_year_id: 'c1111111-0001-1111-1111-111111111111',
+    name: 'Division A',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'd1111111-0001-000b-1111-111111111111',
+    college_id: 'e1111111-1111-1111-1111-111111111111',
+    course_id: 'f1111111-1111-1111-1111-111111111111',
+    academic_year_id: 'c1111111-0001-1111-1111-111111111111',
+    name: 'Division B',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'd1111111-0001-000c-1111-111111111111',
+    college_id: 'e1111111-1111-1111-1111-111111111111',
+    course_id: 'f1111111-1111-1111-1111-111111111111',
+    academic_year_id: 'c1111111-0001-1111-1111-111111111111',
+    name: 'Division C',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'd1111111-0001-000d-1111-111111111111',
+    college_id: 'e1111111-1111-1111-1111-111111111111',
+    course_id: 'f1111111-1111-1111-1111-111111111111',
+    academic_year_id: 'c1111111-0001-1111-1111-111111111111',
+    name: 'Division D',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'd1111111-0001-000e-1111-111111111111',
+    college_id: 'e1111111-1111-1111-1111-111111111111',
+    course_id: 'f1111111-1111-1111-1111-111111111111',
+    academic_year_id: 'c1111111-0001-1111-1111-111111111111',
+    name: 'Division M',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  // Chetana's Institute of Management & Research (CIMR) - Year 2: Divisions A, B, C, D, M
+  {
+    id: 'd1111111-0002-000a-1111-111111111111',
+    college_id: 'e1111111-1111-1111-1111-111111111111',
+    course_id: 'f1111111-1111-1111-1111-111111111111',
+    academic_year_id: 'c1111111-0002-1111-1111-111111111111',
+    name: 'Division A',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'd1111111-0002-000b-1111-1111-111111111111'.slice(0, 36),
+    college_id: 'e1111111-1111-1111-1111-111111111111',
+    course_id: 'f1111111-1111-1111-1111-111111111111',
+    academic_year_id: 'c1111111-0002-1111-1111-111111111111',
+    name: 'Division B',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'd1111111-0002-000c-1111-111111111111',
+    college_id: 'e1111111-1111-1111-1111-111111111111',
+    course_id: 'f1111111-1111-1111-1111-111111111111',
+    academic_year_id: 'c1111111-0002-1111-1111-111111111111',
+    name: 'Division C',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'd1111111-0002-000d-1111-111111111111',
+    college_id: 'e1111111-1111-1111-1111-111111111111',
+    course_id: 'f1111111-1111-1111-1111-111111111111',
+    academic_year_id: 'c1111111-0002-1111-1111-111111111111',
+    name: 'Division D',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'd1111111-0002-000e-1111-111111111111',
+    college_id: 'e1111111-1111-1111-1111-111111111111',
+    course_id: 'f1111111-1111-1111-1111-111111111111',
+    academic_year_id: 'c1111111-0002-1111-1111-111111111111',
+    name: 'Division M',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  // Chetana's R.K. Institute of Management and Research (CRKIMR) - Year 1: Divisions A & B
+  {
+    id: 'd5555555-0001-000a-1111-111111111111',
+    college_id: 'e3333333-3333-3333-3333-333333333333',
+    course_id: 'f5555555-5555-5555-5555-555555555555',
+    academic_year_id: 'c5555555-0001-1111-1111-111111111111',
+    name: 'Division A',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'd5555555-0001-000b-1111-111111111111',
+    college_id: 'e3333333-3333-3333-3333-333333333333',
+    course_id: 'f5555555-5555-5555-5555-555555555555',
+    academic_year_id: 'c5555555-0001-1111-1111-111111111111',
+    name: 'Division B',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  // Chetana's R.K. Institute of Management and Research (CRKIMR) - Year 2: Divisions A & B
+  {
+    id: 'd5555555-0002-000a-1111-111111111111',
+    college_id: 'e3333333-3333-3333-3333-333333333333',
+    course_id: 'f5555555-5555-5555-5555-555555555555',
+    academic_year_id: 'c5555555-0002-1111-1111-111111111111',
+    name: 'Division A',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+  {
+    id: 'd5555555-0002-000b-1111-111111111111',
+    college_id: 'e3333333-3333-3333-3333-333333333333',
+    course_id: 'f5555555-5555-5555-5555-555555555555',
+    academic_year_id: 'c5555555-0002-1111-1111-111111111111',
+    name: 'Division B',
+    is_active: true,
+    created_at: INITIAL_TIMESTAMP,
+    updated_at: INITIAL_TIMESTAMP,
+  },
+];
 
 // Persistent state cache across hot-reloads
 declare global {
@@ -44,9 +273,33 @@ declare global {
 }
 
 if (!globalThis.__sic_colleges) globalThis.__sic_colleges = [];
+for (const sc of SEED_COLLEGES) {
+  if (!globalThis.__sic_colleges.some(c => c.id === sc.id || c.code === sc.code)) {
+    globalThis.__sic_colleges.push(sc);
+  }
+}
+
 if (!globalThis.__sic_courses) globalThis.__sic_courses = [];
+for (const sco of SEED_COURSES) {
+  if (!globalThis.__sic_courses.some(c => c.id === sco.id || (c.college_id === sco.college_id && c.code === sco.code))) {
+    globalThis.__sic_courses.push(sco);
+  }
+}
+
 if (!globalThis.__sic_academic_years) globalThis.__sic_academic_years = [];
+for (const sy of SEED_YEARS) {
+  if (!globalThis.__sic_academic_years.some(y => y.id === sy.id || (y.course_id === sy.course_id && y.year_number === sy.year_number))) {
+    globalThis.__sic_academic_years.push(sy);
+  }
+}
+
 if (!globalThis.__sic_divisions) globalThis.__sic_divisions = [];
+for (const sd of SEED_DIVISIONS) {
+  if (!globalThis.__sic_divisions.some(d => d.id === sd.id || (d.academic_year_id === sd.academic_year_id && d.name === sd.name))) {
+    globalThis.__sic_divisions.push(sd);
+  }
+}
+
 if (!globalThis.__sic_groups) globalThis.__sic_groups = [];
 if (!globalThis.__sic_members) globalThis.__sic_members = [];
 if (!globalThis.__sic_registrations) globalThis.__sic_registrations = [];
@@ -726,12 +979,28 @@ export async function deleteGroup(groupId: string): Promise<boolean> {
 // Academic Query Helpers
 // ----------------------------------------------------------------------------
 export async function getColleges(): Promise<College[]> {
+  const collegeMap = new Map<string, College>();
+
   try {
     const admin = createAdminClient();
     const { data, error } = await admin.from('colleges').select('*').order('name');
-    if (!error && data) return data as College[];
+    if (!error && data) {
+      for (const c of data as College[]) {
+        collegeMap.set(c.id, c);
+      }
+    }
   } catch {}
-  return globalThis.__sic_colleges || [];
+
+  for (const sc of globalThis.__sic_colleges || []) {
+    const exists = Array.from(collegeMap.values()).some(
+      c => c.id === sc.id || c.code.toUpperCase() === sc.code.toUpperCase() || c.name.toLowerCase() === sc.name.toLowerCase()
+    );
+    if (!exists) {
+      collegeMap.set(sc.id, sc);
+    }
+  }
+
+  return Array.from(collegeMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function addCollege(name: string, code: string, description?: string): Promise<College> {
@@ -748,7 +1017,10 @@ export async function addCollege(name: string, code: string, description?: strin
   try {
     const admin = createAdminClient();
     const { data, error } = await admin.from('colleges').insert(newCol).select().single();
-    if (!error && data) return data as College;
+    if (!error && data) {
+      globalThis.__sic_colleges?.push(data as College);
+      return data as College;
+    }
   } catch {}
 
   globalThis.__sic_colleges?.push(newCol);
@@ -772,17 +1044,31 @@ export async function updateCollege(id: string, updates: Partial<College>): Prom
 }
 
 export async function getCourses(collegeId?: string): Promise<Course[]> {
+  const courseMap = new Map<string, Course>();
+
   try {
     const admin = createAdminClient();
     let q = admin.from('courses').select('*, college:colleges(*)').order('name');
     if (collegeId) q = q.eq('college_id', collegeId);
     const { data, error } = await q;
-    if (!error && data) return data as Course[];
+    if (!error && data) {
+      for (const c of data as Course[]) {
+        courseMap.set(c.id, c);
+      }
+    }
   } catch {}
 
-  let list = globalThis.__sic_courses || [];
-  if (collegeId) list = list.filter(c => c.college_id === collegeId);
-  return list;
+  for (const sc of globalThis.__sic_courses || []) {
+    if (collegeId && sc.college_id !== collegeId) continue;
+    const exists = Array.from(courseMap.values()).some(
+      c => c.id === sc.id || (c.college_id === sc.college_id && c.code.toUpperCase() === sc.code.toUpperCase())
+    );
+    if (!exists) {
+      courseMap.set(sc.id, sc);
+    }
+  }
+
+  return Array.from(courseMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 const ORDINAL_YEAR_NAMES = ['First Year', 'Second Year', 'Third Year', 'Fourth Year', 'Fifth Year', 'Sixth Year'];
@@ -806,6 +1092,7 @@ export async function addCourse(collegeId: string, name: string, code: string, d
     const { data, error } = await admin.from('courses').insert(newCourse).select().single();
     if (!error && data) {
       createdCourse = data as Course;
+      globalThis.__sic_courses?.push(createdCourse);
     } else {
       globalThis.__sic_courses?.push(newCourse);
     }
@@ -823,17 +1110,31 @@ export async function addCourse(collegeId: string, name: string, code: string, d
 }
 
 export async function getAcademicYears(courseId?: string): Promise<AcademicYear[]> {
+  const yearMap = new Map<string, AcademicYear>();
+
   try {
     const admin = createAdminClient();
     let q = admin.from('academic_years').select('*, course:courses(*)').order('year_number');
     if (courseId) q = q.eq('course_id', courseId);
     const { data, error } = await q;
-    if (!error && data) return data as AcademicYear[];
+    if (!error && data) {
+      for (const y of data as AcademicYear[]) {
+        yearMap.set(y.id, y);
+      }
+    }
   } catch {}
 
-  let list = globalThis.__sic_academic_years || [];
-  if (courseId) list = list.filter(y => y.course_id === courseId);
-  return list;
+  for (const sy of globalThis.__sic_academic_years || []) {
+    if (courseId && sy.course_id !== courseId) continue;
+    const exists = Array.from(yearMap.values()).some(
+      y => y.id === sy.id || (y.course_id === sy.course_id && y.year_number === sy.year_number)
+    );
+    if (!exists) {
+      yearMap.set(sy.id, sy);
+    }
+  }
+
+  return Array.from(yearMap.values()).sort((a, b) => a.year_number - b.year_number);
 }
 
 export async function addAcademicYear(courseId: string, yearName: string, yearNumber: number): Promise<AcademicYear> {
@@ -850,7 +1151,10 @@ export async function addAcademicYear(courseId: string, yearName: string, yearNu
   try {
     const admin = createAdminClient();
     const { data, error } = await admin.from('academic_years').insert(newYear).select().single();
-    if (!error && data) return data as AcademicYear;
+    if (!error && data) {
+      globalThis.__sic_academic_years?.push(data as AcademicYear);
+      return data as AcademicYear;
+    }
   } catch {}
 
   globalThis.__sic_academic_years?.push(newYear);
@@ -858,6 +1162,8 @@ export async function addAcademicYear(courseId: string, yearName: string, yearNu
 }
 
 export async function getDivisions(params?: { academicYearId?: string; courseId?: string; collegeId?: string }): Promise<Division[]> {
+  const divMap = new Map<string, Division>();
+
   try {
     const admin = createAdminClient();
     let q = admin.from('divisions').select('*, academic_year:academic_years(*), course:courses(*), college:colleges(*)').order('name');
@@ -865,14 +1171,30 @@ export async function getDivisions(params?: { academicYearId?: string; courseId?
     if (params?.courseId) q = q.eq('course_id', params.courseId);
     if (params?.collegeId) q = q.eq('college_id', params.collegeId);
     const { data, error } = await q;
-    if (!error && data) return data as Division[];
+    if (!error && data) {
+      for (const d of data as Division[]) {
+        divMap.set(d.id, d);
+      }
+    }
   } catch {}
 
-  let list = globalThis.__sic_divisions || [];
-  if (params?.academicYearId) list = list.filter(d => d.academic_year_id === params.academicYearId);
-  if (params?.courseId) list = list.filter(d => d.course_id === params.courseId);
-  if (params?.collegeId) list = list.filter(d => d.college_id === params.collegeId);
-  return list;
+  for (const sd of globalThis.__sic_divisions || []) {
+    if (params?.academicYearId && sd.academic_year_id !== params.academicYearId) continue;
+    if (params?.courseId && sd.course_id !== params.courseId) continue;
+    if (params?.collegeId && sd.college_id !== params.collegeId) continue;
+
+    const exists = Array.from(divMap.values()).some(
+      d =>
+        d.id === sd.id ||
+        (d.academic_year_id === sd.academic_year_id &&
+          d.name.trim().toLowerCase() === sd.name.trim().toLowerCase())
+    );
+    if (!exists) {
+      divMap.set(sd.id, sd);
+    }
+  }
+
+  return Array.from(divMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function addDivision(collegeId: string, courseId: string, academicYearId: string, name: string): Promise<Division> {
@@ -890,7 +1212,10 @@ export async function addDivision(collegeId: string, courseId: string, academicY
   try {
     const admin = createAdminClient();
     const { data, error } = await admin.from('divisions').insert(newDiv).select().single();
-    if (!error && data) return data as Division;
+    if (!error && data) {
+      globalThis.__sic_divisions?.push(data as Division);
+      return data as Division;
+    }
   } catch {}
 
   globalThis.__sic_divisions?.push(newDiv);
@@ -901,7 +1226,12 @@ export async function deleteDivision(divisionId: string): Promise<boolean> {
   try {
     const admin = createAdminClient();
     const { error } = await admin.from('divisions').delete().eq('id', divisionId);
-    if (!error) return true;
+    if (!error) {
+      if (globalThis.__sic_divisions) {
+        globalThis.__sic_divisions = globalThis.__sic_divisions.filter(d => d.id !== divisionId);
+      }
+      return true;
+    }
   } catch {}
 
   if (globalThis.__sic_divisions) {
