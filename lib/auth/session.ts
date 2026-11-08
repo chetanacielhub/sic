@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { Member, MemberRegistration, RegistrationStatus } from '@/lib/types/sic';
-import { getRegistrations, getStoredMembers } from '@/lib/academic/store';
+import { Member, MemberRegistration, OrgRole, RegistrationStatus } from '@/lib/types/sic';
+import { getRegistrations, getStoredMembers, hydrateStoreFromAuth } from '@/lib/academic/store';
 import { getAssociateAdminScope } from './rbac';
 
 export const SUPER_ADMIN_FALLBACK_MEMBER_ID = 'a0000000-0000-0000-0000-000000000000';
@@ -149,14 +149,51 @@ export async function getCurrentMember(
   }
 
   // Fallback: check invited / managed members in store
+  await hydrateStoreFromAuth();
+
+  if (user.user_metadata?.sic_status === 'REMOVED' && !isEnvSuperAdmin) {
+    return null;
+  }
+
   if (user.email) {
     const stored = getStoredMembers().find(
       m => m.email.toLowerCase() === user.email!.toLowerCase() || m.auth_user_id === user.id
     );
-    if (stored) {
+    if (stored && (stored.status === 'ACTIVE' || stored.status === 'SUSPENDED')) {
       stored.auth_user_id = user.id;
       return stored;
     }
+  }
+
+  // Fallback: check user_metadata sic_status directly
+  if (
+    user.email &&
+    (user.user_metadata?.sic_status === 'ACTIVE' || user.user_metadata?.sic_status === 'SUSPENDED')
+  ) {
+    const cleanId = user.id.replace(/-/g, '').slice(0, 8).toUpperCase();
+    const nowIso = new Date().toISOString();
+    return {
+      id: user.id,
+      auth_user_id: user.id,
+      member_code: (user.user_metadata?.sic_member_code as string) || `SIC-${cleanId}`,
+      full_name:
+        (user.user_metadata?.full_name as string) ||
+        (user.user_metadata?.name as string) ||
+        user.email.split('@')[0],
+      email: user.email,
+      phone: null,
+      department: (user.user_metadata?.sic_department as string) || 'Innovation & Operations',
+      designation: (user.user_metadata?.sic_designation as string) || 'SIC Member',
+      org_role: (user.user_metadata?.sic_org_role as OrgRole) || 'MEMBER',
+      status: user.user_metadata.sic_status as 'ACTIVE' | 'SUSPENDED',
+      avatar_url:
+        (user.user_metadata?.avatar_url as string) ||
+        (user.user_metadata?.picture as string) ||
+        null,
+      joined_at: nowIso.split('T')[0],
+      created_at: nowIso,
+      updated_at: nowIso,
+    } as Member;
   }
 
   // Fallback: check if user has an APPROVED registration in the registration store
@@ -200,27 +237,36 @@ export async function getCurrentMember(
  * Retrieves the registration submission for the authenticated user.
  */
 export async function getCurrentUserRegistration(userId?: string): Promise<MemberRegistration | null> {
-  const adminClient = createAdminClient();
-  const effectiveUserId = userId || (await getSessionUser())?.id;
+  const sessionUser = await getSessionUser();
+  const effectiveUserId = userId || sessionUser?.id;
   if (!effectiveUserId) return null;
 
-  const { data: registration, error } = await adminClient
-    .from('member_registrations')
-    .select(`
-      *,
-      college:colleges(*),
-      course:courses(*),
-      academic_year:academic_years(*),
-      division:divisions(*),
-      requested_groups:registration_groups(*, group:groups(*))
-    `)
-    .eq('auth_user_id', effectiveUserId)
-    .maybeSingle();
+  try {
+    const adminClient = createAdminClient();
+    const { data: registration, error } = await adminClient
+      .from('member_registrations')
+      .select(`
+        *,
+        college:colleges(*),
+        course:courses(*),
+        academic_year:academic_years(*),
+        division:divisions(*),
+        requested_groups:registration_groups(*, group:groups(*))
+      `)
+      .eq('auth_user_id', effectiveUserId)
+      .maybeSingle();
 
-  if (!error && registration) return registration as MemberRegistration;
+    if (!error && registration) return registration as MemberRegistration;
+  } catch {}
 
   const storeRegs = await getRegistrations({ authUserId: effectiveUserId });
-  return storeRegs[0] || null;
+  if (storeRegs[0]) return storeRegs[0];
+
+  if (sessionUser?.user_metadata?.sic_registration) {
+    return sessionUser.user_metadata.sic_registration as MemberRegistration;
+  }
+
+  return null;
 }
 
 export interface UnifiedAuthContext {

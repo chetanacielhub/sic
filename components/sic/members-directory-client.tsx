@@ -255,17 +255,6 @@ export function MembersDirectoryClient({
     member: DirectoryMemberItem,
     newStatus: 'ACTIVE' | 'SUSPENDED'
   ) => {
-    const actionLabel =
-      newStatus === 'SUSPENDED'
-        ? 'ban/suspend'
-        : member.status === 'SUSPENDED'
-        ? 'remove the ban and approve'
-        : 'approve';
-
-    if (!confirm(`Are you sure you want to ${actionLabel} ${member.full_name} (${member.email})?`)) {
-      return;
-    }
-
     try {
       setProcessingMemberId(member.id);
       setBannerMsg(null);
@@ -318,10 +307,6 @@ export function MembersDirectoryClient({
 
   // Remove Member Handler
   const handleRemoveMember = async (member: DirectoryMemberItem) => {
-    if (!confirm(`Are you sure you want to remove ${member.full_name} (${member.email}) from SIC?`)) {
-      return;
-    }
-
     try {
       setProcessingMemberId(member.id);
       setBannerMsg(null);
@@ -880,13 +865,13 @@ export function MembersDirectoryClient({
                       <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                         <button
                           type="button"
-                          disabled={processingMemberId === member.id || member.status === 'ACTIVE'}
+                          disabled={processingMemberId === member.id}
                           onClick={() => handleSetMemberStatus(member, 'ACTIVE')}
-                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 ${
                             member.status === 'ACTIVE'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default'
-                              : 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-2xs cursor-pointer'
-                          } disabled:opacity-75`}
+                              ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300'
+                              : 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-2xs'
+                          }`}
                         >
                           {processingMemberId === member.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -906,13 +891,13 @@ export function MembersDirectoryClient({
 
                         <button
                           type="button"
-                          disabled={processingMemberId === member.id || isBanned}
+                          disabled={processingMemberId === member.id}
                           onClick={() => handleSetMemberStatus(member, 'SUSPENDED')}
-                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
+                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 ${
                             isBanned
-                              ? 'bg-rose-100 text-rose-800 border border-rose-200 cursor-default'
-                              : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 cursor-pointer'
-                          } disabled:opacity-75`}
+                              ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-2xs'
+                              : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                          }`}
                         >
                           {processingMemberId === member.id ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />

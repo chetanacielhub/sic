@@ -9,6 +9,7 @@ import { getCurrentMember } from '@/lib/auth/session';
 import { getAssociateAdminScope } from '@/lib/auth/rbac';
 import {
   getStoredMembers,
+  hydrateStoreFromAuth,
   inviteOrCreateMember,
   setMemberBanStatus,
   removeMemberById,
@@ -94,6 +95,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    await hydrateStoreFromAuth();
     const { data: dbMembers } = await dbQuery;
     const stored = getStoredMembers();
 
