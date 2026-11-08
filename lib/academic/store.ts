@@ -4,6 +4,7 @@
 // ============================================================================
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/supabase/server';
 import { 
   College, 
   Course, 
@@ -19,6 +20,17 @@ import {
   MemberRegistration, 
   RegistrationGroup
 } from '@/lib/types/sic';
+
+async function getDbClient() {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createAdminClient();
+  }
+  try {
+    return await createClient();
+  } catch {
+    return createAdminClient();
+  }
+}
 
 export interface StoredMember extends Member {
   activeGroups?: Array<{ id?: string; code: string; name: string }>;
@@ -270,6 +282,7 @@ declare global {
   var __sic_groups: Group[] | undefined;
   var __sic_members: StoredMember[] | undefined;
   var __sic_registrations: MemberRegistration[] | undefined;
+  var __sic_removed_members: string[] | undefined;
 }
 
 if (!globalThis.__sic_colleges) globalThis.__sic_colleges = [];
@@ -303,12 +316,17 @@ for (const sd of SEED_DIVISIONS) {
 if (!globalThis.__sic_groups) globalThis.__sic_groups = [];
 if (!globalThis.__sic_members) globalThis.__sic_members = [];
 if (!globalThis.__sic_registrations) globalThis.__sic_registrations = [];
+if (!globalThis.__sic_removed_members) globalThis.__sic_removed_members = [];
 
 // ----------------------------------------------------------------------------
-// Managed Members (Invite, Ban/Unban, Remove)
+// Managed Members (Invite, Approve, Ban/Unban, Remove)
 // ----------------------------------------------------------------------------
 export function getStoredMembers(): StoredMember[] {
   return globalThis.__sic_members || [];
+}
+
+export function getRemovedMemberKeys(): Set<string> {
+  return new Set((globalThis.__sic_removed_members || []).map(k => k.toLowerCase()));
 }
 
 export async function inviteOrCreateMember(params: {
@@ -351,7 +369,7 @@ export async function inviteOrCreateMember(params: {
   };
 
   try {
-    const admin = createAdminClient();
+    const admin = await getDbClient();
     const { data, error } = await admin
       .from('members')
       .upsert(
@@ -386,6 +404,12 @@ export async function inviteOrCreateMember(params: {
     }
   } catch {}
 
+  if (globalThis.__sic_removed_members) {
+    globalThis.__sic_removed_members = globalThis.__sic_removed_members.filter(
+      k => k.toLowerCase() !== cleanEmail && k.toLowerCase() !== newMember.id.toLowerCase()
+    );
+  }
+
   if (!globalThis.__sic_members) globalThis.__sic_members = [];
   const existingIdx = globalThis.__sic_members.findIndex(
     m => m.email.toLowerCase() === cleanEmail
@@ -405,38 +429,98 @@ export async function inviteOrCreateMember(params: {
 export async function setMemberBanStatus(params: {
   memberId: string;
   email?: string;
-  status: MemberStatus; // 'ACTIVE' (unban) or 'SUSPENDED' (ban)
+  full_name?: string;
+  department?: string;
+  designation?: string;
+  roll_number?: string | null;
+  status: MemberStatus; // 'ACTIVE' (approve/unban) or 'SUSPENDED' (ban)
   org_role?: OrgRole;
 }): Promise<boolean> {
   const now = new Date().toISOString();
   const cleanEmail = params.email?.trim().toLowerCase();
+  const regStatus = params.status === 'SUSPENDED' ? 'SUSPENDED' : 'APPROVED';
 
   try {
-    const admin = createAdminClient();
+    const admin = await getDbClient();
     const updatePayload: Record<string, unknown> = {
       status: params.status,
       updated_at: now,
     };
     if (params.org_role) updatePayload.org_role = params.org_role;
 
-    await admin.from('members').update(updatePayload).eq('id', params.memberId);
+    const { data: updatedById } = await admin
+      .from('members')
+      .update(updatePayload)
+      .eq('id', params.memberId)
+      .select('id');
+
+    let updatedAny = (updatedById && updatedById.length > 0) || false;
+
     if (cleanEmail) {
-      await admin.from('members').update(updatePayload).ilike('email', cleanEmail);
+      const { data: updatedByEmail } = await admin
+        .from('members')
+        .update(updatePayload)
+        .ilike('email', cleanEmail)
+        .select('id');
+      if (updatedByEmail && updatedByEmail.length > 0) {
+        updatedAny = true;
+      }
     }
+
+    // If member didn't exist in `members` table yet (e.g. pending registration approved from directory), upsert
+    if (!updatedAny && cleanEmail) {
+      const cleanCode = params.memberId.replace(/-/g, '').slice(0, 8).toUpperCase();
+      await admin.from('members').upsert(
+        {
+          id: params.memberId,
+          member_code: `SIC-${cleanCode}`,
+          full_name: params.full_name?.trim() || cleanEmail.split('@')[0],
+          email: cleanEmail,
+          department: params.department || 'Innovation & Operations',
+          designation: params.designation || 'SIC Member',
+          org_role: params.org_role || 'MEMBER',
+          status: params.status,
+          roll_number: params.roll_number || null,
+          updated_at: now,
+        },
+        { onConflict: 'email' }
+      );
+    }
+
+    // Also update `member_registrations` in DB if present
+    await admin
+      .from('member_registrations')
+      .update({ status: regStatus, updated_at: now })
+      .or(
+        cleanEmail
+          ? `id.eq.${params.memberId},member_id.eq.${params.memberId},email.ilike.${cleanEmail}`
+          : `id.eq.${params.memberId},member_id.eq.${params.memberId}`
+      );
   } catch {}
 
-  // Update in-memory members
-  if (globalThis.__sic_members) {
-    for (const m of globalThis.__sic_members) {
-      if (m.id === params.memberId || (cleanEmail && m.email.toLowerCase() === cleanEmail)) {
-        m.status = params.status;
-        if (params.org_role) m.org_role = params.org_role;
-        m.updated_at = now;
-      }
+  if (globalThis.__sic_removed_members) {
+    globalThis.__sic_removed_members = globalThis.__sic_removed_members.filter(
+      k =>
+        k.toLowerCase() !== params.memberId.toLowerCase() &&
+        (!cleanEmail || k.toLowerCase() !== cleanEmail)
+    );
+  }
+
+  // Update or upsert in-memory members
+  if (!globalThis.__sic_members) globalThis.__sic_members = [];
+  let foundInMem = false;
+  for (const m of globalThis.__sic_members) {
+    if (m.id === params.memberId || (cleanEmail && m.email.toLowerCase() === cleanEmail)) {
+      m.status = params.status;
+      if (params.org_role) m.org_role = params.org_role;
+      if (params.full_name) m.full_name = params.full_name;
+      m.updated_at = now;
+      foundInMem = true;
     }
   }
 
-  // Also sync any matching registration status if unbanning/banning
+  // Sync any matching registration status in memory
+  let matchedReg: MemberRegistration | undefined;
   if (globalThis.__sic_registrations) {
     for (const r of globalThis.__sic_registrations) {
       if (
@@ -444,10 +528,47 @@ export async function setMemberBanStatus(params: {
         r.id === params.memberId ||
         (cleanEmail && r.email.toLowerCase() === cleanEmail)
       ) {
-        r.status = params.status === 'SUSPENDED' ? 'SUSPENDED' : 'APPROVED';
+        r.status = regStatus;
         r.updated_at = now;
+        matchedReg = r;
       }
     }
+  }
+
+  if (!foundInMem && cleanEmail) {
+    const cleanCode = params.memberId.replace(/-/g, '').slice(0, 8).toUpperCase();
+    globalThis.__sic_members.unshift({
+      id: params.memberId,
+      auth_user_id: matchedReg?.auth_user_id || null,
+      member_code: `SIC-${cleanCode}`,
+      full_name:
+        params.full_name?.trim() ||
+        matchedReg?.full_name ||
+        cleanEmail.split('@')[0],
+      email: cleanEmail,
+      phone: null,
+      department:
+        params.department ||
+        matchedReg?.course?.name ||
+        'Innovation & Operations',
+      designation: params.designation || 'SIC Member',
+      org_role: params.org_role || 'MEMBER',
+      status: params.status,
+      avatar_url: matchedReg?.avatar_url || null,
+      college_id: matchedReg?.college_id || null,
+      course_id: matchedReg?.course_id || null,
+      academic_year_id: matchedReg?.academic_year_id || null,
+      division_id: matchedReg?.division_id || null,
+      roll_number: params.roll_number ?? matchedReg?.roll_number ?? null,
+      college: matchedReg?.college,
+      course: matchedReg?.course,
+      academic_year: matchedReg?.academic_year,
+      division: matchedReg?.division,
+      joined_at: now.split('T')[0],
+      created_at: matchedReg?.created_at || now,
+      updated_at: now,
+      activeGroups: [],
+    });
   }
 
   return true;
@@ -456,11 +577,22 @@ export async function setMemberBanStatus(params: {
 export async function removeMemberById(memberId: string, email?: string): Promise<boolean> {
   const cleanEmail = email?.trim().toLowerCase();
 
+  if (!globalThis.__sic_removed_members) globalThis.__sic_removed_members = [];
+  if (!globalThis.__sic_removed_members.includes(memberId.toLowerCase())) {
+    globalThis.__sic_removed_members.push(memberId.toLowerCase());
+  }
+  if (cleanEmail && !globalThis.__sic_removed_members.includes(cleanEmail)) {
+    globalThis.__sic_removed_members.push(cleanEmail);
+  }
+
   try {
-    const admin = createAdminClient();
+    const admin = await getDbClient();
     await admin.from('members').delete().eq('id', memberId);
+    await admin.from('member_registrations').delete().eq('id', memberId);
+    await admin.from('member_registrations').delete().eq('member_id', memberId);
     if (cleanEmail) {
       await admin.from('members').delete().ilike('email', cleanEmail);
+      await admin.from('member_registrations').delete().ilike('email', cleanEmail);
     }
   } catch {}
 
@@ -978,6 +1110,14 @@ export async function deleteGroup(groupId: string): Promise<boolean> {
 // ----------------------------------------------------------------------------
 // Academic Query Helpers
 // ----------------------------------------------------------------------------
+function isExcludedCollege(c?: Partial<College> | null): boolean {
+  if (!c) return false;
+  if (c.id === 'e2222222-2222-2222-2222-222222222222') return true;
+  if (c.code && c.code.toUpperCase() === 'CHSC') return true;
+  if (c.name && c.name.toLowerCase().includes('hazarimal somani')) return true;
+  return false;
+}
+
 export async function getColleges(): Promise<College[]> {
   const collegeMap = new Map<string, College>();
 
@@ -986,12 +1126,14 @@ export async function getColleges(): Promise<College[]> {
     const { data, error } = await admin.from('colleges').select('*').order('name');
     if (!error && data) {
       for (const c of data as College[]) {
+        if (isExcludedCollege(c)) continue;
         collegeMap.set(c.id, c);
       }
     }
   } catch {}
 
   for (const sc of globalThis.__sic_colleges || []) {
+    if (isExcludedCollege(sc)) continue;
     const exists = Array.from(collegeMap.values()).some(
       c => c.id === sc.id || c.code.toUpperCase() === sc.code.toUpperCase() || c.name.toLowerCase() === sc.name.toLowerCase()
     );
@@ -1053,6 +1195,9 @@ export async function getCourses(collegeId?: string): Promise<Course[]> {
     const { data, error } = await q;
     if (!error && data) {
       for (const c of data as Course[]) {
+        if (c.college_id === 'e2222222-2222-2222-2222-222222222222' || isExcludedCollege(c.college)) {
+          continue;
+        }
         courseMap.set(c.id, c);
       }
     }
@@ -1423,23 +1568,12 @@ export async function processRegistrationReview(params: {
   approvedGroupIds?: string[];
   approvedLeaderGroupIds?: string[];
 }): Promise<{ success: boolean; error?: string; registration?: MemberRegistration }> {
-  const admin = createAdminClient();
+  const admin = await getDbClient();
   const list = await getRegistrations();
   const reg = list.find(r => r.id === params.registrationId);
 
   if (!reg) {
     return { success: false, error: 'Registration request not found.' };
-  }
-
-  // Security Invariant: User cannot approve their own registration
-  const { data: reviewer } = await admin
-    .from('members')
-    .select('id, auth_user_id, full_name')
-    .eq('id', params.reviewerMemberId)
-    .single();
-
-  if (reviewer?.auth_user_id === reg.auth_user_id) {
-    return { success: false, error: 'Security violation: Administrators cannot review or approve their own registration.' };
   }
 
   const now = new Date().toISOString();
@@ -1525,11 +1659,13 @@ export async function processRegistrationReview(params: {
       console.warn('Database member sync warning:', dbErr);
     }
 
+    const finalMemberId = memberId || reg.member_id || reg.id;
+
     // 4. Update registration status
     reg.status = 'APPROVED';
     reg.reviewed_by = params.reviewerMemberId;
     reg.reviewed_at = now;
-    reg.member_id = memberId;
+    reg.member_id = finalMemberId;
     reg.updated_at = now;
 
     // Update group request statuses
@@ -1545,12 +1681,61 @@ export async function processRegistrationReview(params: {
       }
     }
 
+    // 5. Upsert into in-memory members store so `/sic/members` immediately shows the approved member
+    if (!globalThis.__sic_members) globalThis.__sic_members = [];
+    const approvedGroupItems = (reg.requested_groups || [])
+      .filter(rg => rg.request_type === 'MEMBER' && rg.status === 'APPROVED')
+      .map(rg => ({
+        id: rg.group_id,
+        code: rg.group?.code || 'SIC',
+        name: rg.group?.name || 'SIC Group',
+      }));
+
+    const storedMem: StoredMember = {
+      id: finalMemberId,
+      auth_user_id: reg.auth_user_id,
+      member_code: memberCode,
+      full_name: reg.full_name,
+      email: reg.email,
+      phone: null,
+      department: reg.course?.name || 'Innovation & Operations',
+      designation: 'SIC Member',
+      org_role: 'MEMBER',
+      status: 'ACTIVE',
+      avatar_url: reg.avatar_url || null,
+      college_id: reg.college_id,
+      course_id: reg.course_id,
+      academic_year_id: reg.academic_year_id,
+      division_id: reg.division_id,
+      roll_number: reg.roll_number,
+      college: reg.college,
+      course: reg.course,
+      academic_year: reg.academic_year,
+      division: reg.division,
+      joined_at: now.split('T')[0],
+      created_at: reg.created_at,
+      updated_at: now,
+      activeGroups: approvedGroupItems,
+    };
+
+    const existingIdx = globalThis.__sic_members.findIndex(
+      m => m.email.toLowerCase() === reg.email.toLowerCase()
+    );
+    if (existingIdx >= 0) {
+      globalThis.__sic_members[existingIdx] = {
+        ...globalThis.__sic_members[existingIdx],
+        ...storedMem,
+      };
+    } else {
+      globalThis.__sic_members.unshift(storedMem);
+    }
+
     try {
       await admin.from('member_registrations').update({
         status: 'APPROVED',
         reviewed_by: params.reviewerMemberId,
         reviewed_at: now,
-        member_id: memberId,
+        member_id: finalMemberId,
         updated_at: now,
       }).eq('id', reg.id);
     } catch {}

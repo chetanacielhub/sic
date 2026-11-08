@@ -8,7 +8,7 @@ import React from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentMember } from '@/lib/auth/session';
 import { getAssociateAdminScope } from '@/lib/auth/rbac';
-import { getRegistrations, getStoredMembers, getGroups } from '@/lib/academic/store';
+import { getRegistrations, getStoredMembers, getRemovedMemberKeys, getGroups } from '@/lib/academic/store';
 import { MembersDirectoryClient, DirectoryMemberItem } from '@/components/sic/members-directory-client';
 
 export const dynamic = 'force-dynamic';
@@ -59,10 +59,12 @@ export default async function MembersPage() {
     getGroups(),
   ]);
 
-  // 3. Build unified directory member list (DB members + Stored/Invited members + Approved/Suspended Registrations)
+  // 3. Build unified directory member list (DB members + Stored/Invited members + Registrations)
   const directoryMap = new Map<string, DirectoryMemberItem>();
+  const removedKeys = getRemovedMemberKeys();
 
   for (const m of dbMembers || []) {
+    if (removedKeys.has(m.id.toLowerCase()) || removedKeys.has(m.email.toLowerCase())) continue;
     const activeGroups = ((m.group_memberships || []) as Array<{
       status: string;
       group: { id?: string; code: string; name: string } | Array<{ id?: string; code: string; name: string }>;
@@ -79,21 +81,27 @@ export default async function MembersPage() {
 
   // Merge invited/managed members from store
   for (const sm of getStoredMembers()) {
+    if (removedKeys.has(sm.id.toLowerCase()) || removedKeys.has(sm.email.toLowerCase())) continue;
     directoryMap.set(sm.email.toLowerCase(), {
       ...sm,
       activeGroups: sm.activeGroups || [],
     });
   }
 
-  // Ensure any APPROVED or SUSPENDED registrations in the store are also represented in the directory
+  // Ensure all registrations in the store are also represented in the directory so Admin can Approve, Ban, or Remove directly
   for (const reg of allRegistrations) {
     if (
-      (reg.status === 'APPROVED' || reg.status === 'SUSPENDED') &&
-      !directoryMap.has(reg.email.toLowerCase())
+      removedKeys.has(reg.id.toLowerCase()) ||
+      (reg.member_id && removedKeys.has(reg.member_id.toLowerCase())) ||
+      removedKeys.has(reg.email.toLowerCase())
     ) {
+      continue;
+    }
+
+    if (!directoryMap.has(reg.email.toLowerCase())) {
       const cleanCode = reg.auth_user_id.replace(/-/g, '').slice(0, 8).toUpperCase();
       const approvedGroups = (reg.requested_groups || [])
-        .filter(rg => rg.request_type === 'MEMBER' && rg.status === 'APPROVED')
+        .filter(rg => rg.request_type === 'MEMBER' && (rg.status === 'APPROVED' || reg.status === 'PENDING'))
         .map(rg => ({
           id: rg.group_id,
           code: rg.group?.code || 'SIC',
@@ -110,13 +118,19 @@ export default async function MembersPage() {
         department: reg.course?.name || 'Innovation & Operations',
         designation: 'SIC Member',
         org_role: 'MEMBER',
-        status: reg.status === 'SUSPENDED' ? 'SUSPENDED' : 'ACTIVE',
+        status:
+          reg.status === 'SUSPENDED'
+            ? 'SUSPENDED'
+            : reg.status === 'APPROVED'
+            ? 'ACTIVE'
+            : 'INACTIVE',
         avatar_url: reg.avatar_url || null,
         college_id: reg.college_id,
         course_id: reg.course_id,
         academic_year_id: reg.academic_year_id,
         division_id: reg.division_id,
         roll_number: reg.roll_number,
+        registration_id: reg.id,
         college: reg.college,
         course: reg.course,
         academic_year: reg.academic_year,
@@ -129,8 +143,13 @@ export default async function MembersPage() {
     }
   }
 
-  // Ensure the current admin is also visible if not yet in DB
-  if (currentMember && !directoryMap.has(currentMember.email.toLowerCase())) {
+  // Ensure the current admin is also visible if not yet in DB and not removed
+  if (
+    currentMember &&
+    !directoryMap.has(currentMember.email.toLowerCase()) &&
+    !removedKeys.has(currentMember.id.toLowerCase()) &&
+    !removedKeys.has(currentMember.email.toLowerCase())
+  ) {
     directoryMap.set(currentMember.email.toLowerCase(), {
       ...currentMember,
       activeGroups: [],
@@ -138,11 +157,17 @@ export default async function MembersPage() {
   }
 
   const initialMembers = Array.from(directoryMap.values());
+  const visibleRegistrations = allRegistrations.filter(
+    r =>
+      !removedKeys.has(r.id.toLowerCase()) &&
+      (!r.member_id || !removedKeys.has(r.member_id.toLowerCase())) &&
+      !removedKeys.has(r.email.toLowerCase())
+  );
 
   return (
     <MembersDirectoryClient
       initialMembers={initialMembers}
-      initialRegistrations={isAdmin ? allRegistrations : []}
+      initialRegistrations={isAdmin ? visibleRegistrations : []}
       availableGroups={availableGroups}
       isAdmin={isAdmin}
       isSuperAdmin={isSuperAdmin}

@@ -183,18 +183,14 @@ ALTER TABLE members ADD COLUMN IF NOT EXISTS registration_id UUID REFERENCES mem
 CREATE INDEX IF NOT EXISTS idx_members_college ON members(college_id);
 
 -- ----------------------------------------------------------------------------
--- 11. Seed Institutional Data (CIMR & CHSC)
+-- 11. Seed Institutional Data (CIMR & CRKIMR)
 -- ----------------------------------------------------------------------------
 DO $$
 DECLARE
     v_cimr_id UUID   := 'e1111111-1111-1111-1111-111111111111';
-    v_chsc_id UUID   := 'e2222222-2222-2222-2222-222222222222';
     v_crkimr_id UUID := 'e3333333-3333-3333-3333-333333333333';
     
     v_course_pgdm UUID := 'f1111111-1111-1111-1111-111111111111';
-    v_course_bcom UUID := 'f2222222-2222-2222-2222-222222222222';
-    v_course_bms UUID  := 'f3333333-3333-3333-3333-333333333333';
-    v_course_bscit UUID:= 'f4444444-4444-4444-4444-444444444444';
     v_course_mms UUID  := 'f5555555-5555-5555-5555-555555555555';
 
     v_year_pgdm_1 UUID := 'c1111111-0001-1111-1111-111111111111';
@@ -202,24 +198,14 @@ DECLARE
 
     v_year_mms_1 UUID  := 'c5555555-0001-1111-1111-111111111111';
     v_year_mms_2 UUID  := 'c5555555-0002-1111-1111-111111111111';
-
-    v_year_bcom_1 UUID := 'c2222222-0001-1111-1111-111111111111';
-    v_year_bcom_2 UUID := 'c2222222-0002-1111-1111-111111111111';
-    v_year_bcom_3 UUID := 'c2222222-0003-1111-1111-111111111111';
-
-    v_year_bms_1 UUID  := 'c3333333-0001-1111-1111-111111111111';
-    v_year_bms_2 UUID  := 'c3333333-0002-1111-1111-111111111111';
-    v_year_bms_3 UUID  := 'c3333333-0003-1111-1111-111111111111';
-
-    v_year_bscit_1 UUID:= 'c4444444-0001-1111-1111-111111111111';
-    v_year_bscit_2 UUID:= 'c4444444-0002-1111-1111-111111111111';
-    v_year_bscit_3 UUID:= 'c4444444-0003-1111-1111-111111111111';
 BEGIN
+    -- Remove Chetana's Hazarimal Somani College of Commerce & Economics (CHSC) if present
+    DELETE FROM colleges WHERE id = 'e2222222-2222-2222-2222-222222222222' OR code = 'CHSC' OR name ILIKE '%Hazarimal Somani%';
+
     -- 1. Colleges
     INSERT INTO colleges (id, name, code, description)
     VALUES 
         (v_cimr_id, 'Chetana''s Institute of Management & Research', 'CIMR', 'Postgraduate Business & Innovation Management'),
-        (v_chsc_id, 'Chetana''s Hazarimal Somani College of Commerce & Economics', 'CHSC', 'Undergraduate Commerce, Arts & IT'),
         (v_crkimr_id, 'Chetana''s R.K. Institute of Management and Research', 'CRKIMR', 'Postgraduate Management Studies & Research')
     ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, code = EXCLUDED.code;
 
@@ -227,10 +213,7 @@ BEGIN
     INSERT INTO courses (id, college_id, name, code, duration_years)
     VALUES 
         (v_course_pgdm, v_cimr_id, 'Post Graduate Diploma in Management (PGDM)', 'PGDM', 2),
-        (v_course_mms, v_crkimr_id, 'Master of Management Studies (MMS)', 'MMS', 2),
-        (v_course_bcom, v_chsc_id, 'Bachelor of Commerce (B.Com)', 'BCOM', 3),
-        (v_course_bms, v_chsc_id, 'Bachelor of Management Studies (BMS)', 'BMS', 3),
-        (v_course_bscit, v_chsc_id, 'B.Sc Information Technology (B.Sc IT)', 'BSCIT', 3)
+        (v_course_mms, v_crkimr_id, 'Master of Management Studies (MMS)', 'MMS', 2)
     ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, code = EXCLUDED.code;
 
     -- 3. Academic Years
@@ -239,16 +222,7 @@ BEGIN
         (v_year_pgdm_1, v_course_pgdm, 'First Year', 1),
         (v_year_pgdm_2, v_course_pgdm, 'Second Year', 2),
         (v_year_mms_1, v_course_mms, 'Year 1', 1),
-        (v_year_mms_2, v_course_mms, 'Year 2', 2),
-        (v_year_bcom_1, v_course_bcom, 'First Year', 1),
-        (v_year_bcom_2, v_course_bcom, 'Second Year', 2),
-        (v_year_bcom_3, v_course_bcom, 'Third Year', 3),
-        (v_year_bms_1, v_course_bms, 'First Year', 1),
-        (v_year_bms_2, v_course_bms, 'Second Year', 2),
-        (v_year_bms_3, v_course_bms, 'Third Year', 3),
-        (v_year_bscit_1, v_course_bscit, 'First Year', 1),
-        (v_year_bscit_2, v_course_bscit, 'Second Year', 2),
-        (v_year_bscit_3, v_course_bscit, 'Third Year', 3)
+        (v_year_mms_2, v_course_mms, 'Year 2', 2)
     ON CONFLICT (id) DO UPDATE SET year_name = EXCLUDED.year_name, year_number = EXCLUDED.year_number;
 
     -- 4. Divisions
@@ -279,32 +253,6 @@ BEGIN
         (v_year_mms_1, v_course_mms, v_crkimr_id, 'Division B'),
         (v_year_mms_2, v_course_mms, v_crkimr_id, 'Division A'),
         (v_year_mms_2, v_course_mms, v_crkimr_id, 'Division B')
-    ON CONFLICT (academic_year_id, name) DO NOTHING;
-
-    -- B.Com Year 1
-    INSERT INTO divisions (academic_year_id, course_id, college_id, name)
-    VALUES 
-        (v_year_bcom_1, v_course_bcom, v_chsc_id, 'Division A'),
-        (v_year_bcom_1, v_course_bcom, v_chsc_id, 'Division B'),
-        (v_year_bcom_1, v_course_bcom, v_chsc_id, 'Division C'),
-        (v_year_bcom_1, v_course_bcom, v_chsc_id, 'Division D')
-    ON CONFLICT (academic_year_id, name) DO NOTHING;
-
-    -- B.Sc IT Year 1, 2, 3
-    INSERT INTO divisions (academic_year_id, course_id, college_id, name)
-    VALUES 
-        (v_year_bscit_1, v_course_bscit, v_chsc_id, 'Division A'),
-        (v_year_bscit_2, v_course_bscit, v_chsc_id, 'Division A'),
-        (v_year_bscit_3, v_course_bscit, v_chsc_id, 'Division A')
-    ON CONFLICT (academic_year_id, name) DO NOTHING;
-
-    -- BMS Year 1, 2, 3
-    INSERT INTO divisions (academic_year_id, course_id, college_id, name)
-    VALUES 
-        (v_year_bms_1, v_course_bms, v_chsc_id, 'Division A'),
-        (v_year_bms_1, v_course_bms, v_chsc_id, 'Division B'),
-        (v_year_bms_2, v_course_bms, v_chsc_id, 'Division A'),
-        (v_year_bms_3, v_course_bms, v_chsc_id, 'Division A')
     ON CONFLICT (academic_year_id, name) DO NOTHING;
 
     -- 5. Seed Super Admin (chetana.cielhub@gmail.com)

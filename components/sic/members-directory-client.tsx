@@ -57,7 +57,7 @@ export function MembersDirectoryClient({
 
   // Filters
   const [regStatusFilter, setRegStatusFilter] = useState<string>('PENDING');
-  const [memberStatusFilter, setMemberStatusFilter] = useState<'ALL' | 'ACTIVE' | 'SUSPENDED'>('ALL');
+  const [memberStatusFilter, setMemberStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Review Modal State
@@ -250,10 +250,17 @@ export function MembersDirectoryClient({
     }
   };
 
-  // Ban / Remove Ban Handler
-  const handleToggleBan = async (member: DirectoryMemberItem) => {
-    const newStatus = member.status === 'SUSPENDED' ? 'ACTIVE' : 'SUSPENDED';
-    const actionLabel = newStatus === 'SUSPENDED' ? 'ban/suspend' : 'remove the ban for';
+  // Approve / Ban / Unban Member Handler
+  const handleSetMemberStatus = async (
+    member: DirectoryMemberItem,
+    newStatus: 'ACTIVE' | 'SUSPENDED'
+  ) => {
+    const actionLabel =
+      newStatus === 'SUSPENDED'
+        ? 'ban/suspend'
+        : member.status === 'SUSPENDED'
+        ? 'remove the ban and approve'
+        : 'approve';
 
     if (!confirm(`Are you sure you want to ${actionLabel} ${member.full_name} (${member.email})?`)) {
       return;
@@ -269,6 +276,10 @@ export function MembersDirectoryClient({
         body: JSON.stringify({
           member_id: member.id,
           email: member.email,
+          full_name: member.full_name,
+          department: member.department,
+          designation: member.designation,
+          roll_number: member.roll_number,
           status: newStatus,
         }),
       });
@@ -287,9 +298,19 @@ export function MembersDirectoryClient({
         )
       );
 
+      setRegistrations(prev =>
+        prev.map(r =>
+          r.id === member.id ||
+          r.member_id === member.id ||
+          r.email.toLowerCase() === member.email.toLowerCase()
+            ? { ...r, status: newStatus === 'SUSPENDED' ? 'SUSPENDED' : 'APPROVED' }
+            : r
+        )
+      );
+
       setBannerMsg({ type: 'success', text: json.message });
     } catch {
-      setBannerMsg({ type: 'error', text: 'Failed to update ban status.' });
+      setBannerMsg({ type: 'error', text: 'Failed to update member status.' });
     } finally {
       setProcessingMemberId(null);
     }
@@ -508,7 +529,8 @@ export function MembersDirectoryClient({
             {(
               [
                 { id: 'ALL', label: `All (${members.length})` },
-                { id: 'ACTIVE', label: `Active (${members.filter(m => m.status === 'ACTIVE').length})` },
+                { id: 'ACTIVE', label: `Approved (${members.filter(m => m.status === 'ACTIVE').length})` },
+                { id: 'INACTIVE', label: `Pending (${members.filter(m => m.status === 'INACTIVE').length})` },
                 { id: 'SUSPENDED', label: `Banned (${bannedCount})` },
               ] as const
             ).map(tab => (
@@ -639,7 +661,7 @@ export function MembersDirectoryClient({
                           <span>
                             {reg.status === 'SUSPENDED' || reg.status === 'REJECTED'
                               ? 'Remove Ban & Approve'
-                              : 'Approve Member'}
+                              : 'Approve'}
                           </span>
                         </button>
                       )}
@@ -662,6 +684,65 @@ export function MembersDirectoryClient({
                           </button>
                         </>
                       )}
+
+                      {reg.status !== 'SUSPENDED' && (
+                        <button
+                          type="button"
+                          disabled={processingMemberId === (reg.member_id || reg.id)}
+                          onClick={() =>
+                            handleSetMemberStatus(
+                              {
+                                id: reg.member_id || reg.id,
+                                auth_user_id: reg.auth_user_id,
+                                member_code: `SIC-${reg.auth_user_id.replace(/-/g, '').slice(0, 8).toUpperCase()}`,
+                                full_name: reg.full_name,
+                                email: reg.email,
+                                phone: null,
+                                department: reg.course?.name || 'Innovation & Operations',
+                                designation: 'SIC Member',
+                                org_role: 'MEMBER',
+                                status: 'SUSPENDED',
+                                avatar_url: reg.avatar_url || null,
+                                roll_number: reg.roll_number,
+                                created_at: reg.created_at,
+                                updated_at: reg.updated_at,
+                              },
+                              'SUSPENDED'
+                            )
+                          }
+                          className="px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          <Ban className="h-3.5 w-3.5" />
+                          <span>Ban</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={processingMemberId === (reg.member_id || reg.id)}
+                        onClick={() =>
+                          handleRemoveMember({
+                            id: reg.member_id || reg.id,
+                            auth_user_id: reg.auth_user_id,
+                            member_code: `SIC-${reg.auth_user_id.replace(/-/g, '').slice(0, 8).toUpperCase()}`,
+                            full_name: reg.full_name,
+                            email: reg.email,
+                            phone: null,
+                            department: reg.course?.name || 'Innovation & Operations',
+                            designation: 'SIC Member',
+                            org_role: 'MEMBER',
+                            status: 'INACTIVE',
+                            avatar_url: reg.avatar_url || null,
+                            roll_number: reg.roll_number,
+                            created_at: reg.created_at,
+                            updated_at: reg.updated_at,
+                          })
+                        }
+                        className="px-3.5 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Remove</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -689,15 +770,17 @@ export function MembersDirectoryClient({
               {filteredMembers.map(member => {
                 const activeGroups = member.activeGroups || [];
                 const isBanned = member.status === 'SUSPENDED';
-                const isSelf =
-                  currentMemberEmail &&
-                  member.email.toLowerCase() === currentMemberEmail.toLowerCase();
+                const isPending = member.status === 'INACTIVE';
 
                 return (
                   <div
                     key={member.id}
                     className={`bg-white p-5 rounded-2xl border shadow-xs flex flex-col justify-between transition-all ${
-                      isBanned ? 'border-rose-300 bg-rose-50/20' : 'border-slate-200'
+                      isBanned
+                        ? 'border-rose-300 bg-rose-50/20'
+                        : isPending
+                        ? 'border-amber-300 bg-amber-50/10'
+                        : 'border-slate-200'
                     }`}
                   >
                     <div>
@@ -709,6 +792,11 @@ export function MembersDirectoryClient({
                           {isBanned && (
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200">
                               BANNED
+                            </span>
+                          )}
+                          {isPending && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                              PENDING APPROVAL
                             </span>
                           )}
                           <span
@@ -787,33 +875,44 @@ export function MembersDirectoryClient({
                       </div>
                     </div>
 
-                    {/* Admin Management Controls (Ban / Remove Ban / Delete) */}
-                    {isAdmin && !isSelf && (
-                      <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          disabled={processingMemberId === member.id}
-                          onClick={() => handleToggleBan(member)}
-                          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 ${
-                            isBanned
-                              ? 'bg-emerald-700 hover:bg-emerald-800 text-white shadow-2xs'
-                              : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
-                          }`}
-                        >
-                          {processingMemberId === member.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : isBanned ? (
-                            <>
-                              <RotateCcw className="h-3.5 w-3.5" />
-                              <span>Remove Ban</span>
-                            </>
-                          ) : (
-                            <>
-                              <Ban className="h-3.5 w-3.5" />
-                              <span>Ban User</span>
-                            </>
-                          )}
-                        </button>
+                    {/* Admin Management Controls (Approve / Ban / Remove) */}
+                    {isAdmin && (
+                      <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                        {member.status !== 'ACTIVE' && (
+                          <button
+                            type="button"
+                            disabled={processingMemberId === member.id}
+                            onClick={() => handleSetMemberStatus(member, 'ACTIVE')}
+                            className="flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white shadow-2xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {processingMemberId === member.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <>
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <span>{isBanned ? 'Approve / Unban' : 'Approve'}</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {member.status !== 'SUSPENDED' && (
+                          <button
+                            type="button"
+                            disabled={processingMemberId === member.id}
+                            onClick={() => handleSetMemberStatus(member, 'SUSPENDED')}
+                            className="flex-1 py-2 px-3 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {processingMemberId === member.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <>
+                                <Ban className="h-3.5 w-3.5" />
+                                <span>Ban</span>
+                              </>
+                            )}
+                          </button>
+                        )}
 
                         <button
                           type="button"

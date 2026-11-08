@@ -38,6 +38,10 @@ const InviteMemberSchema = z.object({
 const UpdateMemberSchema = z.object({
   member_id: z.string().min(1),
   email: z.string().optional(),
+  full_name: z.string().optional(),
+  department: z.string().optional(),
+  designation: z.string().optional(),
+  roll_number: z.string().optional().nullable(),
   status: z.enum(['ACTIVE', 'SUSPENDED', 'INACTIVE']).optional(),
   org_role: z
     .enum([
@@ -148,6 +152,10 @@ export async function PATCH(request: NextRequest) {
     await setMemberBanStatus({
       memberId: validated.member_id,
       email: validated.email,
+      full_name: validated.full_name,
+      department: validated.department,
+      designation: validated.designation,
+      roll_number: validated.roll_number,
       status: validated.status || 'ACTIVE',
       org_role: validated.org_role,
     });
@@ -157,7 +165,7 @@ export async function PATCH(request: NextRequest) {
       message:
         validated.status === 'SUSPENDED'
           ? 'Member account has been banned / suspended.'
-          : 'Ban removed — member account is now active.',
+          : 'Member account approved and active.',
     });
   } catch (err: unknown) {
     if (err instanceof z.ZodError) {
