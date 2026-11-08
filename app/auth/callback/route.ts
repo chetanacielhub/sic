@@ -92,11 +92,31 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = await createClient();
-    const { data: { user }, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+    const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
 
+    let user = exchangeData?.user ?? null;
+
+    // Fallback: if a duplicate/prefetched callback request raced and already exchanged the code,
+    // check if an authenticated session is already active before failing.
     if (exchangeError || !user) {
+      const { data: existingSession } = await supabase.auth.getUser();
+      if (existingSession?.user) {
+        user = existingSession.user;
+      }
+    }
+
+    if (!user) {
       const errorMsg = exchangeError?.message || 'InvalidAuthCode';
-      return NextResponse.redirect(`${baseOrigin}${defaultErrorRoute}?error=${encodeURIComponent(errorMsg)}`);
+      const errResponse = NextResponse.redirect(
+        `${baseOrigin}${defaultErrorRoute}?error=${encodeURIComponent(errorMsg)}`
+      );
+      // Clear any stale PKCE code-verifier cookies so the next sign-in succeeds cleanly
+      for (const c of request.cookies.getAll()) {
+        if (c.name.includes('code-verifier')) {
+          errResponse.cookies.delete(c.name);
+        }
+      }
+      return errResponse;
     }
 
     const member = await getCurrentMember(user);

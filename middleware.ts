@@ -43,11 +43,58 @@ function getPublicOrigin(request: NextRequest): string {
 }
 
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+  const publicOrigin = getPublicOrigin(request);
+
+  // 1. If Supabase OAuth fell back to Site URL (http://localhost:3000/?code=...)
+  // after login was initiated on https://sic.cielhub.org, immediately forward the
+  // authorization code to https://sic.cielhub.org/auth/callback without consuming it locally.
+  if (
+    pathname === '/' &&
+    request.nextUrl.searchParams.has('code') &&
+    (request.nextUrl.hostname === 'localhost' || request.nextUrl.hostname === '127.0.0.1')
+  ) {
+    const prodUrl = (
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      'https://sic.cielhub.org'
+    )
+      .trim()
+      .replace(/\/$/, '');
+
+    if (prodUrl.startsWith('https://')) {
+      return NextResponse.redirect(
+        new URL(`/auth/callback${request.nextUrl.search}`, prodUrl)
+      );
+    }
+  }
+
+  // 2. If Supabase OAuth redirected to root /?code=... on production, forward to /auth/callback
+  if (pathname === '/' && request.nextUrl.searchParams.has('code')) {
+    return NextResponse.redirect(
+      new URL(`/auth/callback${request.nextUrl.search}`, publicOrigin)
+    );
+  }
+
+  // 3. Do NOT run supabase.auth.getUser() inside middleware on /auth/callback
+  // so middleware never mutates or races with PKCE code_verifier cookies.
+  if (pathname.startsWith('/auth/callback')) {
+    return NextResponse.next({ request });
+  }
+
+  // 4. Static and system assets
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/favicon') ||
+    pathname.includes('.')
+  ) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   });
 
-  const publicOrigin = getPublicOrigin(request);
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://oovusdcssgdspizneqjr.supabase.co';
   const key =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
@@ -71,45 +118,12 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const pathname = request.nextUrl.pathname;
-
-  // If Supabase OAuth redirected to localhost with ?code=... when login was initiated on https://sic.cielhub.org
-  // (i.e. no PKCE code-verifier cookie on localhost), forward to https://sic.cielhub.org/auth/callback
-  if (
-    request.nextUrl.searchParams.has('code') &&
-    (request.nextUrl.hostname === 'localhost' || request.nextUrl.hostname === '127.0.0.1')
-  ) {
-    const hasLocalCodeVerifier = request.cookies
-      .getAll()
-      .some(c => c.name.includes('code-verifier'));
-    const prodUrl = (
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      'https://sic.cielhub.org'
-    )
-      .trim()
-      .replace(/\/$/, '');
-
-    if (!hasLocalCodeVerifier && prodUrl.startsWith('https://')) {
-      return NextResponse.redirect(
-        new URL(`/auth/callback${request.nextUrl.search}`, prodUrl)
-      );
-    }
-  }
-
-  // If Supabase OAuth redirected to root /?code=... instead of /auth/callback, forward to /auth/callback
-  if (pathname === '/' && request.nextUrl.searchParams.has('code')) {
-    return NextResponse.redirect(
-      new URL(`/auth/callback${request.nextUrl.search}`, publicOrigin)
-    );
-  }
-
   // Refresh auth session
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 1. API Route Handling (NEVER redirect API routes to HTML login pages)
+  // 5. API Route Handling (NEVER redirect API routes to HTML login pages)
   if (pathname.startsWith('/api/')) {
     const isPublicApi =
       pathname.startsWith('/api/auth') ||
@@ -130,16 +144,7 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // 2. Static and system assets
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon') ||
-    pathname.includes('.')
-  ) {
-    return supabaseResponse;
-  }
-
-  // 3. Root index handling: start with /login if unauthenticated, or /dashboard if authenticated
+  // 6. Root index handling: start with /login if unauthenticated, or /dashboard if authenticated
   if (pathname === '/') {
     if (user) {
       return NextResponse.redirect(new URL('/dashboard', publicOrigin));
@@ -147,7 +152,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', publicOrigin));
   }
 
-  // 4. Public Web Pages
+  // 7. Public Web Pages
   const isPublicPage =
     pathname === '/login' ||
     pathname === '/associate-admin-login' ||
@@ -160,7 +165,6 @@ export async function middleware(request: NextRequest) {
 
   // If unauthenticated and accessing a protected UI page
   if (!user && !isPublicPage) {
-    // If accessing associate admin dashboard without login, redirect to associate admin login
     if (pathname.startsWith('/associate-admin')) {
       const redirectUrl = new URL('/associate-admin-login', publicOrigin);
       redirectUrl.searchParams.set('redirectTo', pathname);

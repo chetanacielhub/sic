@@ -73,6 +73,16 @@ function AssociateAdminLoginForm() {
       setIsGoogleLoading(true);
       setError(null);
 
+      // Clear any stale PKCE code-verifier cookies from earlier failed/cross-origin attempts
+      if (typeof document !== 'undefined') {
+        document.cookie.split(';').forEach(cookie => {
+          const name = cookie.split('=')[0]?.trim();
+          if (name && name.includes('code-verifier')) {
+            document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax`;
+          }
+        });
+      }
+
       // Direct through auth callback specifying role=associate_admin and next=/associate-admin/dashboard
       const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, '');
       const isProdHost =
